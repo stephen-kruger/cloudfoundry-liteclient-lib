@@ -32,5 +32,9 @@ public class CloudSpace extends CloudEntity {
 	public CloudOrganization getOrganization() {
 		return organization;
 	}
+	
+	public String toString() {
+		return "Name:"+getName()+" Organisation:"+getOrganization().getName();
+	}
 
 }

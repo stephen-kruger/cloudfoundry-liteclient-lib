@@ -26,10 +26,10 @@ public class CloudOrganization extends CloudEntity {
 
 	private boolean billingEnabled = false;
 
-	public CloudOrganization(JSONObject org) throws JSONException {
-		this(new Meta(org.getJSONObject("metadata")),
-				org.getJSONObject("entity").getString("name"),
-				org.getJSONObject("entity").getBoolean("billing_enabled"));
+	public CloudOrganization(JSONObject meta, JSONObject entity) throws JSONException {
+		this(new Meta(meta),
+				entity.getString("name"),
+				entity.getBoolean("billing_enabled"));
 	}
 
 	public CloudOrganization(Meta meta, String name) {

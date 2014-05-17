@@ -28,6 +28,11 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+/**
+ * 
+ * @author Stephen Kruger.
+ * 
+ */
 public class ResponseObject extends JSONObject {
 	private static Logger log = Logger.getAnonymousLogger();
 	private static SimpleDateFormat dateFormatter = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ");

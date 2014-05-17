@@ -16,6 +16,11 @@ import org.cloudfoundry.client.lib.domain.CloudInfo;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+/**
+ * 
+ * @author Stephen Kruger.
+ * 
+ */
 public class OAuth2AccessToken extends ResponseObject {
 	private static Logger log = Logger.getAnonymousLogger();
 	public enum Fields {access_token, expires_in,scope, jti, target};

@@ -1,6 +1,10 @@
 package org.cloudfoundry.client.ibmlib.util;
 
-
+/**
+ * 
+ * @author Stephen Kruger.
+ * 
+ */
 public class Assert {
 
 	public static void notNull(Object object, String message) {

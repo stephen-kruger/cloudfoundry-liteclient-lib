@@ -18,6 +18,11 @@ import org.cloudfoundry.client.lib.domain.CloudApplication;
 import org.json.JSONArray;
 import org.json.JSONException;
 
+/**
+ * 
+ * @author Stephen Kruger.
+ * 
+ */
 public class ServiceResponse extends ResponseObject {
 	public enum Fields {resources,next_url,prev_url,total_pages,total_results};
 	

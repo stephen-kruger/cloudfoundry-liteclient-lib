@@ -1,31 +1,43 @@
 package com.ibm.bluemix;
 
+import java.io.FileInputStream;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Properties;
+import java.util.logging.Logger;
 
 import junit.framework.TestCase;
 
 import org.cloudfoundry.client.lib.CloudCredentials;
 import org.cloudfoundry.client.lib.CloudFoundryClient;
 import org.cloudfoundry.client.lib.domain.CloudApplication;
+import org.cloudfoundry.client.lib.domain.CloudDomain;
 import org.cloudfoundry.client.lib.domain.CloudOrganization;
 import org.cloudfoundry.client.lib.domain.CloudService;
 import org.cloudfoundry.client.lib.domain.CloudSpace;
 import org.cloudfoundry.client.lib.domain.Staging;
 
 public class ClientTest extends TestCase {
+	private static Logger log = Logger.getAnonymousLogger();
 
-	String target = "https://api.ng.bluemix.net";
-	String user = "xxxxxxx";
-	String password = "xxxxxxxxxxxxxx";
+	String target;
+	String user;
+	String password;
 	CloudFoundryClient cfc;
 
 	@Override
 	protected void setUp() throws Exception {
 		super.setUp();
+		
+		Properties p = new Properties();
+		p.load(new FileInputStream("src/test/resources/creds.properties"));
+		user = p.getProperty("user");
+		password = p.getProperty("passwd");
+		target = p.getProperty("base");
+		
 		cfc = new CloudFoundryClient(new CloudCredentials(user,password), new URL(target));
 		cfc.login();
 	}
@@ -36,14 +48,52 @@ public class ClientTest extends TestCase {
 		cfc.logout();
 	}
 
-	public void testApps() {
+	public void testSpaces() {
+		List<CloudSpace> spaces = cfc.getSpaces();
+		assertTrue("No spaces found",spaces.size()>0);
+		log.info("Found "+spaces.size()+" spaces");
+		for (CloudSpace space : spaces) {
+			log.info("Space 1:"+space.toString());
+		}
+	}
+	
+	public void testDomains() {
+		List<CloudDomain> domains = cfc.getDomains();
+		assertTrue("No domains found",domains.size()>0);
+		log.info("Found "+domains.size()+" domains");
+		for (CloudDomain domain : domains) {
+			log.info("Domain 1:"+domain.toString());
+		}
+	}
+	
+	public void testOrganisations() {
+		List<CloudOrganization> orgs = cfc.getOrganizations();
+		assertTrue("No organisations found",orgs.size()>0);
+		log.info("Found "+orgs.size()+" domains");
+		for (CloudOrganization org : orgs) {
+			log.info("Organization 1:"+org.toString());
+			// now check the domains
+			List<CloudDomain> domains = cfc.getDomainsForOrg(org);
+			log.info(" Domains:"+domains.size());
+		}
+		
+	}
+	
+	public void testApps() {	
+		List<CloudApplication> apps = cfc.getApplications();
+		assertTrue("No apps found",apps.size()>0);
+		log.info("Found "+apps.size()+" apps");
+		for (CloudApplication app : apps) {
+			log.info("App 1:"+app.toString());
+		}
+		
 		// create an app
-		String appName = "JUnit Test App";
-		Staging staging = new Staging();
-		Integer memory = Integer.valueOf(1024);
-		List<String> uris = new ArrayList<String>();
-		List<String> serviceNames = new ArrayList<String>();
-		cfc.createApplication(appName, staging, memory, uris, serviceNames);
+//		String appName = "JUnit Test App";
+//		Staging staging = new Staging();
+//		Integer memory = Integer.valueOf(1024);
+//		List<String> uris = new ArrayList<String>();
+//		List<String> serviceNames = new ArrayList<String>();
+//		cfc.createApplication(appName, staging, memory, uris, serviceNames);
 		// list the app
 		// delete the app
 	}

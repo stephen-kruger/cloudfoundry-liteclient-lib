@@ -220,7 +220,6 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 
 	public CloudInfo getCloudInfo() {
 		if (info == null) {
-			//			info = cc.getInfo();
 			try {
 				if (token==null) {
 					token = new OAuth2AccessToken("",cloudControllerUrl.toString());
@@ -255,7 +254,8 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 			for (int i = 0; i < ja.length(); i++) {
 				JSONObject entity = ja.getJSONObject(i).getJSONObject("entity");
 				Meta meta = new Meta(ja.getJSONObject(i).getJSONObject("metadata"));
-				CloudOrganization org = new CloudOrganization(entity.getJSONObject("organization"));
+				CloudOrganization org = new CloudOrganization(entity.getJSONObject("organization").getJSONObject("metadatadata"),
+						entity.getJSONObject("organization").getJSONObject("entity"));
 				CloudSpace space = new CloudSpace(meta,entity.getString("name"),org);
 				spaces.add(space);
 			}
@@ -273,14 +273,18 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 		try {
 			JSONArray entities = ResponseObject.getResources(urlPath, token);
 
-			for (int i =0; i < entities.length(); i++)
-				orgs.add(new CloudOrganization(entities.getJSONObject(i)));
+			for (int i =0; i < entities.length(); i++) {
+				orgs.add(new CloudOrganization(entities.getJSONObject(i).getJSONObject("metadata"),
+						entities.getJSONObject(i).getJSONObject("entity")));
+			}
 		}
 		catch (Throwable t) {
 			t.printStackTrace();
 		}
 		return orgs;
 	}
+	
+	
 
 	public void register(String email, String password) {
 		//cc.register(email, password);
@@ -304,7 +308,7 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 
 	public OAuth2AccessToken login() throws ClientProtocolException, URISyntaxException, IOException, JSONException {
 		token=OAuth2AccessToken.getLoginResponse(cloudControllerUrl.toString(),getCloudInfo(), credentials);//cc.login();
-//		sessionSpace = validateSpaceAndOrg(spaceName, orgName);
+		//		sessionSpace = validateSpaceAndOrg(spaceName, orgName);
 		return token;
 	}
 
@@ -816,10 +820,7 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 		//		cc.rename(appName, newName);
 	}
 
-	public List<CloudDomain> getDomainsForOrg() {
-		log.severe(NYI);
-		return null;//cc.getDomainsForOrg();
-	}
+	
 
 	public List<CloudDomain> getPrivateDomains() {
 		log.severe(NYI);
@@ -832,10 +833,37 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 	}
 
 	public List<CloudDomain> getDomains() {
-		log.severe(NYI);
-		return null;//cc.getDomains();
+		List<CloudOrganization> orgs = getOrganizations();
+		List<CloudDomain> domains = new ArrayList<CloudDomain>();
+		for (CloudOrganization org : orgs) {
+			List<CloudDomain> orgd = getDomainsForOrg(org);
+			domains.addAll(orgd);
+		}
+		return domains;
 	}
 
+	public List<CloudDomain> getDomainsForOrg(CloudOrganization org) {
+		List<CloudDomain> domains = new ArrayList<CloudDomain>();
+			String urlPath = "/v2/organizations/"+org.getMeta().getGuid().toString()+"/domains";
+			try {
+				JSONArray ja = ResponseObject.getResources(urlPath, token);
+				for (int i = 0; i < ja.length(); i++) {
+					JSONObject meta = ja.getJSONObject(i).getJSONObject("metadata");
+					JSONObject entity = ja.getJSONObject(i).getJSONObject("entity");
+					domains.add(new CloudDomain(new Meta(meta),entity.getString("name"),org));
+				}
+			}
+			catch (Throwable t) {
+				t.printStackTrace();
+			}
+		return domains;
+	}
+	
+	public List<CloudDomain> getDomainsForOrg() {
+		assertSpaceProvided("access organization domains");
+		return getDomainsForOrg(sessionSpace.getOrganization());
+	}
+	
 	public void addDomain(String domainName) {
 		log.severe(NYI);
 		//		cc.addDomain(domainName);
@@ -873,8 +901,14 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 		String urlPath = "/v2/domains?inline-relations-depth=1&q=name:"+domainName;
 		UUID domainGuid = null;
 		try {
-			ResponseObject ro = ResponseObject.getResponsObject(urlPath, token);
-			System.out.println(ro.toString(3));
+			JSONArray ro = ResponseObject.getResources(urlPath, token);
+			for (int i =0; i < ro.length();i++) {
+				return new Meta(ro.getJSONObject(i).getJSONObject("metadata")).getGuid();
+			}
+			// if we got here, no domains set
+			if (required) {
+				throw new IllegalArgumentException("Domain '" + domainName + "' not found.");
+			}
 		}
 		catch (Throwable t) {
 			t.printStackTrace();
