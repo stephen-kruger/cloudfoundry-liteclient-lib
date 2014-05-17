@@ -124,7 +124,10 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 
 	public CloudFoundryClient(CloudCredentials credentials, URL cloudControllerUrl) {
 		//		this(credentials, cloudControllerUrl, null, (HttpProxyConfiguration) null, false);
+		Assert.notNull(credentials, "Credentials were not set");
 		this.credentials = credentials;
+		this.token = credentials.getToken();
+		Assert.notNull(credentials, "Cloud controller cannot be null");
 		this.cloudControllerUrl = cloudControllerUrl;
 	}
 
@@ -254,8 +257,9 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 			for (int i = 0; i < ja.length(); i++) {
 				JSONObject entity = ja.getJSONObject(i).getJSONObject("entity");
 				Meta meta = new Meta(ja.getJSONObject(i).getJSONObject("metadata"));
-				CloudOrganization org = new CloudOrganization(entity.getJSONObject("organization").getJSONObject("metadatadata"),
-						entity.getJSONObject("organization").getJSONObject("entity"));
+				JSONObject orgEntity = entity.getJSONObject("organization");
+				CloudOrganization org = new CloudOrganization(orgEntity.getJSONObject("metadata"),
+						orgEntity.getJSONObject("entity"));
 				CloudSpace space = new CloudSpace(meta,entity.getString("name"),org);
 				spaces.add(space);
 			}
@@ -283,8 +287,8 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 		}
 		return orgs;
 	}
-	
-	
+
+
 
 	public void register(String email, String password) {
 		//cc.register(email, password);
@@ -319,9 +323,11 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 	public List<CloudApplication> getApplications() {
 		List<CloudApplication> applications = new ArrayList<CloudApplication>();
 		try {
-			JSONArray ja = ResponseObject.getResources("/v2/apps", token);
+			JSONArray ja = ResponseObject.getResources("/v2/apps?inline-relations-depth=1", token);
 			for (int i = 0; i < ja.length(); i++) {
-				applications.add(new CloudApplication(token,ja.getJSONObject(i).getJSONObject("entity"),ja.getJSONObject(i).getJSONObject("metadata")));
+				JSONObject resource = ja.getJSONObject(i);
+				CloudApplication app = new CloudApplication(token,resource.getJSONObject("entity"),resource.getJSONObject("metadata"));
+				applications.add(app);
 			}
 			//			System.out.println(appResponse.toString(3));
 			for (CloudApplication app : applications) {
@@ -340,6 +346,7 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 
 		try {
 			JSONArray ja = ResponseObject.getResources(urlPath, token);
+
 			for (int i = 0; i < ja.length();i++) {
 				JSONObject entity = ja.getJSONObject(i);
 				String host = entity.getJSONObject("entity").getString("host");
@@ -388,16 +395,20 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 		appRequest.put("state", CloudApplication.AppState.STOPPED.name());
 
 		String appResp = postForObject(getUrl("/v2/apps"), appRequest, String.class);
-		System.out.println(appResp);
-		Map<String, Object> appEntity = JsonUtil.convertJsonToMap(appResp);
-		UUID newAppGuid = CloudEntityResourceMapper.getMeta(appEntity).getGuid();
+		try {
+			Map<String, Object> appEntity = JsonUtil.convertJsonToMap(appResp);
+			UUID newAppGuid = CloudEntityResourceMapper.getMeta(appEntity).getGuid();
 
-		if (serviceNames != null && serviceNames.size() > 0) {
-			updateApplicationServices(appName, serviceNames);
+			if (serviceNames != null && serviceNames.size() > 0) {
+				updateApplicationServices(appName, serviceNames);
+			}
+
+			if (uris != null && uris.size() > 0) {
+				addUris(uris, newAppGuid);
+			}
 		}
-
-		if (uris != null && uris.size() > 0) {
-			addUris(uris, newAppGuid);
+		catch (Throwable t) {
+			t.printStackTrace();
 		}
 	}
 
@@ -412,40 +423,45 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 	}
 
 	private UUID getRouteGuid(String host, UUID domainGuid) {
-		Map<String, Object> urlVars = new HashMap<String, Object>();
-		String urlPath = "/v2";
-		urlPath = urlPath + "/routes?inline-relations-depth=0&q=host:{host}";
-		urlVars.put("host", host);
-		List<Map<String, Object>> allRoutes = getAllResources(urlPath, urlVars);
+		String urlPath = "/v2/routes?inline-relations-depth=0&q=host:"+host;
+
 		UUID routeGuid = null;
-		for (Map<String, Object> route : allRoutes) {
-			UUID routeSpace = CloudEntityResourceMapper.getEntityAttribute(route, "space_guid", UUID.class);
-			UUID routeDomain = CloudEntityResourceMapper.getEntityAttribute(route, "domain_guid", UUID.class);
-			if (sessionSpace.getMeta().getGuid().equals(routeSpace) &&
-					domainGuid.equals(routeDomain)) {
-				routeGuid = CloudEntityResourceMapper.getMeta(route).getGuid();
+		try {
+			JSONArray ja = ResponseObject.getResources(urlPath, token);
+			for (int i = 0; i < ja.length(); i++) {
+				JSONObject entity = ja.getJSONObject(i).getJSONObject("entity");
+				JSONObject metadata = ja.getJSONObject(i).getJSONObject("metadata");
+				UUID routeSpace = UUID.fromString(entity.getString("space_guid"));
+				UUID routeDomain = UUID.fromString(entity.getString("domain_guid"));
+				if (sessionSpace.getMeta().getGuid().equals(routeSpace) &&
+						domainGuid.equals(routeDomain)) {
+					routeGuid = new Meta(metadata).getGuid();
+				}
 			}
+		}
+		catch (Throwable t) {
+			t.printStackTrace();
 		}
 		return routeGuid;
 	}
 
-	private List<Map<String, Object>> getAllResources(String urlPath, Map<String, Object> urlVars) {
-		List<Map<String, Object>> allResources = new ArrayList<Map<String, Object>>();
-		try {
-			JSONArray resources = ResponseObject.getResources(urlPath, token);
-		} catch (Throwable e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		// TODO - figure out how these guys convert a rich json object to a Map
-		return allResources;
-	}
+	//	private List<Map<String, Object>> getAllResources(String urlPath, Map<String, Object> urlVars) {
+	//		List<Map<String, Object>> allResources = new ArrayList<Map<String, Object>>();
+	//		try {
+	//			JSONArray resources = ResponseObject.getResources(urlPath, token);
+	//		} catch (Throwable e) {
+	//			// TODO Auto-generated catch block
+	//			e.printStackTrace();
+	//		}
+	//		// TODO - figure out how these guys convert a rich json object to a Map
+	//		return allResources;
+	//	}
 
-	private String getForObject(String url, Class<String> class1,
-			Map<String, Object> urlVars) {
-		// TODO Auto-generated method stub
-		return null;
-	}
+	//	private String getForObject(String url, Class<String> class1,
+	//			Map<String, Object> urlVars) {
+	//		// TODO Auto-generated method stub
+	//		return null;
+	//	}
 
 	private void bindRoute(String host, UUID domainGuid, UUID appGuid) {
 		UUID routeGuid = getRouteGuid(host, domainGuid);
@@ -465,8 +481,14 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 		routeRequest.put("domain_guid", domainGuid);
 		routeRequest.put("space_guid", sessionSpace.getMeta().getGuid());
 		String routeResp = postForObject(getUrl("/v2/routes"), routeRequest, String.class);
-		Map<String, Object> routeEntity = JsonUtil.convertJsonToMap(routeResp);
-		return CloudEntityResourceMapper.getMeta(routeEntity).getGuid();
+		try {
+			Map<String, Object> routeEntity = JsonUtil.convertJsonToMap(routeResp);
+			return CloudEntityResourceMapper.getMeta(routeEntity).getGuid();
+		}
+		catch (Throwable t) {
+			t.printStackTrace();
+			return null;
+		}
 	}
 
 	private String putForObject(String urlOffset, HashMap<String, Object> routeRequest, Class<String> class1) {
@@ -481,7 +503,8 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 	private String postForObject(String urlOffset, HashMap<String, Object> routeRequest, Class<String> class1) {
 		try {
 			return ResponseObject.postResponsObject(urlOffset, token, null, routeRequest).toString();
-		} catch (Throwable e) {
+		} 
+		catch (Throwable e) {
 			e.printStackTrace();
 			return null;
 		}
@@ -529,12 +552,19 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 			urlPath = urlPath + "/spaces/{space}";
 		}
 		String domainPath = urlPath + "/domains?inline-relations-depth=1";
-		List<Map<String, Object>> resourceList = getAllResources(domainPath, urlVars);
-		Map<String, UUID> domains = new HashMap<String, UUID>(resourceList.size());
-		for (Map<String, Object> d : resourceList) {
-			domains.put(
-					CloudEntityResourceMapper.getEntityAttribute(d, "name", String.class),
-					CloudEntityResourceMapper.getMeta(d).getGuid());
+
+		Map<String, UUID> domains = new HashMap<String, UUID>();
+		try {
+			JSONArray ja = ResponseObject.getResources(domainPath, token);
+			for (int i = 0; i < ja.length(); i++) {
+				JSONObject entity = ja.getJSONObject(i).getJSONObject("entity");
+				JSONObject metadata = ja.getJSONObject(i).getJSONObject("metadata");
+				domains.put(entity.getString("name"),
+						new Meta(metadata).getGuid());
+			}
+		}
+		catch (Throwable t) {
+			t.printStackTrace();
 		}
 		return domains;
 	}
@@ -820,7 +850,7 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 		//		cc.rename(appName, newName);
 	}
 
-	
+
 
 	public List<CloudDomain> getPrivateDomains() {
 		log.severe(NYI);
@@ -844,29 +874,52 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 
 	public List<CloudDomain> getDomainsForOrg(CloudOrganization org) {
 		List<CloudDomain> domains = new ArrayList<CloudDomain>();
-			String urlPath = "/v2/organizations/"+org.getMeta().getGuid().toString()+"/domains";
-			try {
-				JSONArray ja = ResponseObject.getResources(urlPath, token);
-				for (int i = 0; i < ja.length(); i++) {
-					JSONObject meta = ja.getJSONObject(i).getJSONObject("metadata");
-					JSONObject entity = ja.getJSONObject(i).getJSONObject("entity");
-					domains.add(new CloudDomain(new Meta(meta),entity.getString("name"),org));
-				}
+		String urlPath = "/v2/organizations/"+org.getMeta().getGuid().toString()+"/domains";
+		try {
+			JSONArray ja = ResponseObject.getResources(urlPath, token);
+			for (int i = 0; i < ja.length(); i++) {
+				JSONObject meta = ja.getJSONObject(i).getJSONObject("metadata");
+				JSONObject entity = ja.getJSONObject(i).getJSONObject("entity");
+				domains.add(new CloudDomain(new Meta(meta),entity.getString("name"),org));
 			}
-			catch (Throwable t) {
-				t.printStackTrace();
-			}
+		}
+		catch (Throwable t) {
+			t.printStackTrace();
+		}
 		return domains;
 	}
-	
+
 	public List<CloudDomain> getDomainsForOrg() {
 		assertSpaceProvided("access organization domains");
 		return getDomainsForOrg(sessionSpace.getOrganization());
 	}
-	
+
 	public void addDomain(String domainName) {
-		log.severe(NYI);
-		//		cc.addDomain(domainName);
+		if (sessionSpace==null)
+			sessionSpace = getSpaces().get(0);
+		assertSpaceProvided("add domain");
+		UUID domainGuid = getDomainGuid(domainName, false);
+		if (domainGuid == null) {
+			doCreateDomain(domainName);
+		}
+	}
+
+	private UUID doCreateDomain(String domainName) {
+		String urlPath = "/v2/private_domains";
+		HashMap<String, Object> domainRequest = new HashMap<String, Object>();
+		domainRequest.put("owning_organization_guid", sessionSpace.getOrganization().getMeta().getGuid());
+		domainRequest.put("name", domainName);
+		domainRequest.put("wildcard", true);
+		String resp = postForObject(getUrl(urlPath), domainRequest, String.class);
+		log.info(resp);
+		try {
+			Map<String, Object> respMap = JsonUtil.convertJsonToMap(resp);
+			//		return resourceMapper.getGuidOfResource(respMap);
+		}
+		catch (Throwable t) {
+			t.printStackTrace();
+		}
+		return null;
 	}
 
 	public void deleteDomain(String domainName) {
@@ -881,9 +934,11 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 
 	public List<CloudRoute> getRoutes(String domainName) {
 		UUID domainGuid = getDomainGuid(domainName, true);
-
 		String urlPath = "/v2/routes?inline-relations-depth=1";
 		List<CloudRoute> routes = new ArrayList<CloudRoute>();
+		// tbd
+
+
 		//		for (Map<String, Object> route : allRoutes) {
 		////			TODO: move space_guid to path once implemented (see above):
 		//			UUID space = CloudEntityResourceMapper.getEntityAttribute(route, "space_guid", UUID.class);
@@ -898,12 +953,12 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 	}
 
 	private UUID getDomainGuid(String domainName, boolean required) {
-		String urlPath = "/v2/domains?inline-relations-depth=1&q=name:"+domainName;
+		String urlPath = "/v2/domains?inline-relations-depth=1&q=name:"+URLEncoder.encode(domainName);
 		UUID domainGuid = null;
 		try {
-			JSONArray ro = ResponseObject.getResources(urlPath, token);
-			for (int i =0; i < ro.length();i++) {
-				return new Meta(ro.getJSONObject(i).getJSONObject("metadata")).getGuid();
+			JSONArray ja = ResponseObject.getResources(urlPath, token);
+			if (ja.length()>0) {
+				return new Meta(ja.getJSONObject(0).getJSONObject("metadata")).getGuid();
 			}
 			// if we got here, no domains set
 			if (required) {

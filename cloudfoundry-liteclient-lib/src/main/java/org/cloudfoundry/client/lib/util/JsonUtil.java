@@ -16,23 +16,18 @@
 
 package org.cloudfoundry.client.lib.util;
 
-
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
 //import org.cloudfoundry.client.lib.domain.CloudResource;
 //import org.codehaus.jackson.map.ObjectMapper;
 //import org.codehaus.jackson.type.TypeReference;
 //import org.springframework.http.MediaType;
 
-import org.json.JSONObject;
-
-import java.io.IOException;
-import java.nio.charset.Charset;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
+import java.util.logging.Logger;
+
+import org.json.JSONException;
+import org.json.JSONObject;
 
 /**
  * Some JSON helper utilities used by the Cloud Foundry Java client.
@@ -42,7 +37,7 @@ import java.util.Map;
  */
 public class JsonUtil {
 
-	protected static final Log logger = LogFactory.getLog(JsonUtil.class);
+	protected static final Logger logger = Logger.getAnonymousLogger();
 
 //	private final static ObjectMapper mapper = new ObjectMapper();
 
@@ -51,7 +46,7 @@ public class JsonUtil {
 //			MediaType.APPLICATION_JSON.getSubtype(),
 //			Charset.forName("UTF-8"));
 
-	public static Map<String, Object> convertJsonToMap(String json) {
+	public static Map<String, Object> convertJsonToMap(String json) throws JSONException {
 		Map<String, Object> retMap = new HashMap<String, Object>();
 		if (json != null) {
 //			try {
@@ -64,10 +59,12 @@ public class JsonUtil {
 		return retMap;
 	}
 	
-	public static Map<String, Object> convertJsonToMap(JSONObject json) {
+	public static Map<String, Object> convertJsonToMap(JSONObject json) throws JSONException {
 		Map<String, Object> retMap = new HashMap<String, Object>();
-		JSONObject jo = new JSONObject(json);
-		for (Object key : jo.keySet()) {
+		JSONObject jo = new JSONObject(json.toString());
+		Iterator keys = jo.keys();
+		while (keys.hasNext()) {
+			String key = keys.next().toString();
 			if (jo.get(key.toString()) instanceof JSONObject) {
 				retMap.put(key.toString(), convertJsonToMap(jo.getJSONObject(key.toString())));
 			}
@@ -118,7 +115,7 @@ public class JsonUtil {
 //	}
 	
 	@SuppressWarnings("rawtypes")
-	public static JSONObject convertMapToJson(Map<String, Object> map) {
+	public static JSONObject convertMapToJson(Map<String, Object> map) throws JSONException {
 		JSONObject res = new JSONObject();
 		for (String key : map.keySet()) {
 			res.put(key, map.get(key));

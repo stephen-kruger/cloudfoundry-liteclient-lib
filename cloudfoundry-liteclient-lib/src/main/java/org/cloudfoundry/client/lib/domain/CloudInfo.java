@@ -20,6 +20,7 @@ package org.cloudfoundry.client.lib.domain;
 
 import java.util.Map;
 
+import org.json.JSONException;
 import org.json.JSONObject;
 
 /**
@@ -80,7 +81,7 @@ public class CloudInfo {
 //		}
 //	}
 
-    public CloudInfo(JSONObject ir) {
+    public CloudInfo(JSONObject ir) throws JSONException {
 		this(
 		ir.getString("name"), 
 		ir.getString("support"), 

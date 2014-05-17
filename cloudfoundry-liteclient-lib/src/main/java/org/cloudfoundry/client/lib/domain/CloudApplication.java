@@ -1,6 +1,7 @@
 package org.cloudfoundry.client.lib.domain;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
 
@@ -10,7 +11,7 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-public class CloudApplication {
+public class CloudApplication extends CloudEntity {
 	public enum AppState {
 		UPDATING, STARTED, STOPPED
 	}
@@ -53,7 +54,7 @@ public class CloudApplication {
 		url
 	}
 	private JSONObject entity;
-	private JSONObject metadata;
+//	private JSONObject metadata;
 	private OAuth2AccessToken oauth2AccessToken;
 	private int diskQuota;
 	private int memory;
@@ -64,14 +65,16 @@ public class CloudApplication {
 	private AppState state;
 	//	private int runningInstances;
 	private List<String> uris;
+	private Integer runningInstances;
+	private DebugMode debug;
 
 	public CloudApplication(OAuth2AccessToken oauth2AccessToken,JSONObject entity, JSONObject metadata) {
 		this.oauth2AccessToken = oauth2AccessToken;
 		this.entity = entity;
-		this.metadata = metadata;
+		setMeta(new Meta(metadata));
 
 		//		System.out.println("---------------------");
-		//		System.out.println(metadata.toString(3));
+		//				System.out.println(metadata.toString(3));
 		//		System.out.println(entity.toString(3));
 
 		// populate the object fields
@@ -80,6 +83,47 @@ public class CloudApplication {
 			//			runningInstances = entity.getInt(EntityField.instances.name());
 			instances = entity.getInt(EntityField.instances.name());
 			setEnv(getEnvFromJSON(entity.getJSONObject("environment_json")));
+			//---------inherited
+			if (entity.has("runningInstances")) {
+				runningInstances = entity.getInt("runningInstances");
+			}
+
+			if (entity.has("memory")) {
+				memory = entity.getInt("memory");
+			}
+			if (entity.has("disk_quota")) {
+				diskQuota = entity.getInt("disk_quota");
+			}
+			//			env = (List<String>) attributes.get("env");
+
+			if (entity.isNull(EntityField.debug.name()))
+				setDebug(null);
+			else
+				setDebug(DebugMode.valueOf(entity.getString(EntityField.debug.name())));
+
+			//				long created = parse(Long.class, metaValue.get("created"));
+			//				Date createdDate = created != 0 ? new Date(created * 1000) : null;
+			//				setMeta(new Meta(null, createdDate, null));
+			//
+			String command = null;
+			if (entity.has("command")) {
+				if (entity.isNull("comand"))
+					command = null;
+				else
+					command = entity.getString("command");
+			}
+			String buildpackUrl = null;
+			if (entity.has("buildpack")) {
+				if (entity.isNull("comand"))
+					buildpackUrl = null;
+				else
+					buildpackUrl = entity.getString("buildpack");
+			}
+			CloudStack stack = new CloudStack(entity.getJSONObject("stack").getJSONObject("entity"),entity.getJSONObject("stack").getJSONObject("metadata"));
+			setStaging(new Staging(command, buildpackUrl,stack.getName(),null));
+			//				
+			//			}
+			//------------------
 		} 
 		catch (JSONException e) {
 			e.printStackTrace();
@@ -94,7 +138,7 @@ public class CloudApplication {
 
 			try {
 				ResponseObject ro = ResponseObject.getResponsObject(urlPath, oauth2AccessToken);
-				String appGuid = metadata.getString("guid");
+				String appGuid = getMeta().getGuid().toString();
 				JSONArray resources = ro.getJSONArray("resources");
 				for (int i = 0; i < resources.length();i++) {
 					JSONObject entity = resources.getJSONObject(i).getJSONObject("entity");
@@ -197,32 +241,17 @@ public class CloudApplication {
 		try {
 			return entity.getString(EntityField.name.name());
 		} catch (JSONException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 			return null;
 		}
 	}
 
 	public DebugMode getDebug() {
-		try {
-			if (entity.isNull(EntityField.debug.name()))
-				return DebugMode.suspend;
-			else
-				return DebugMode.valueOf(entity.getString(EntityField.debug.name()));
-		} 
-		catch (JSONException e) {
-			e.printStackTrace();
-			return null;
-		}
+		return debug;
 	}
 
 	public void setDebug(DebugMode debug) {
-		try {
-			entity.put(EntityField.debug.name(),debug.name());
-		} catch (JSONException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+		this.debug = debug;
 	}
 
 	public List<String> getUris() {
@@ -233,35 +262,16 @@ public class CloudApplication {
 		this.uris = uris;
 	}
 
-	//	public Map<String, String> getEnvAsMap() {
-	//		Map<String,String> envMap = new HashMap<String, String>();
-	//		for (String nameAndValue : env) {
-	//			String[] parts = nameAndValue.split("=");
-	//			envMap.put(parts[0], parts.length == 2 ? parts[1] : null);
-	//		}
-	//		return envMap;
-	//	}
-
-	// TODO - this method fails with 404 on Bluemix
 	public List<String> getEnv() {
-		//{"system_env_json":{"VCAP_SERVICES":{}},"environment_json":{"env_var":"env_val"}}		
-		if (env==null) {
-			String urlOffset = "/v2/apps/"+getGuid().toString()+"/env";
-			try {
-				ResponseObject ro = ResponseObject.getResponsObject(urlOffset, oauth2AccessToken);
-				JSONObject environment_json = ro.getJSONObject("environment_json");
-				env = getEnvFromJSON(environment_json);
-			}
-			catch (Throwable t) {
-				t.printStackTrace();
-			}
-		}
 		return env;
 	}
 
-	private static List<String> getEnvFromJSON(JSONObject jsonObject) {
+	private static List<String> getEnvFromJSON(JSONObject jsonObject) throws JSONException {
 		List<String> e = new ArrayList<String>();
-		for (Object key : jsonObject.keySet()) {
+		@SuppressWarnings("unchecked")
+		Iterator<String> keys = jsonObject.keys();
+		while (keys.hasNext()) {
+			String key = keys.next().toString();
 			e.add(e.toString()+"="+jsonObject.getString(key.toString()));
 		}
 		return e;
@@ -337,19 +347,26 @@ public class CloudApplication {
 		return "CloudApplication [staging=" + staging + ", instances="
 				+ instances + ", name=" + getName() 
 				+ ", memory=" + memory + ", diskQuota=" + diskQuota
-				+ ", state=" + state + ", debug=" + getDebug() + ", uris=" + getUris() + ",services=" + services
+				+ ", state=" + state + ", debug=" + getDebug() + ", uris=" + getUris() + ",services=" + getServices()
 				+ ", env=" + env + "]";
 	}
 
 	public UUID getGuid() {
 		try {
-			return UUID.fromString(metadata.getString("guid"));
+			return getMeta().getGuid();
 		} catch (JSONException e) {
 			e.printStackTrace();
 			return null;
 		}
 	}
 
+	public int getRunningInstances() {
+		return runningInstances;
+	}
+
+	public void setRunningInstances(int runningInstances) {
+		this.runningInstances = runningInstances;
+	}
 }
 
 

@@ -67,7 +67,7 @@ public class ResponseObject extends JSONObject {
 	}
 
 	@SuppressWarnings("rawtypes")
-	public Map<String, Object> convertJsonToMap() {
+	public Map<String, Object> convertJsonToMap() throws JSONException {
 		Iterator keys = this.keys();
 		Map<String, Object> result = new HashMap<String, Object>();
 		String key;
@@ -101,7 +101,7 @@ public class ResponseObject extends JSONObject {
 	/*
 	 * This method has no authentication, and is used for the intitial login request. The uri is the full uri, not just the offset.
 	 */
-	public static JSONObject postResponsObject(URI uri, Map<String, String> headers, StringEntity body) throws ClientProtocolException, IOException {
+	public static JSONObject postResponsObject(URI uri, Map<String, String> headers, StringEntity body) throws ClientProtocolException, IOException, IllegalStateException, JSONException {
 		HttpPost request = new HttpPost();
 		request.setURI(uri); 
 		request.setHeader("Content-Type", "application/x-www-form-urlencoded");
@@ -120,7 +120,7 @@ public class ResponseObject extends JSONObject {
 		return new ResponseObject(entity.getContent());
 	}
 
-	public static ResponseObject puttResponsObject(String urlOffset, OAuth2AccessToken oauth2AccessToken, Map<String, String> headers, Map<String,Object> body) throws ClientProtocolException, IOException, URISyntaxException {
+	public static ResponseObject puttResponsObject(String urlOffset, OAuth2AccessToken oauth2AccessToken, Map<String, String> headers, Map<String,Object> body) throws ClientProtocolException, IOException, URISyntaxException, JSONException {
 		StringBuffer sb = new StringBuffer();
 		for (String key : body.keySet()) {
 			sb.append(key).append("=").append(body.get(key)).append("&");
@@ -129,7 +129,7 @@ public class ResponseObject extends JSONObject {
 		return putResponsObject(urlOffset, oauth2AccessToken, headers, sbody);
 	}
 
-	public static ResponseObject putResponsObject(String urlOffset, OAuth2AccessToken oauth2AccessToken, Map<String, String> headers, Map<String,Object> body) throws ClientProtocolException, IOException, URISyntaxException {
+	public static ResponseObject putResponsObject(String urlOffset, OAuth2AccessToken oauth2AccessToken, Map<String, String> headers, Map<String,Object> body) throws ClientProtocolException, IOException, URISyntaxException, JSONException {
 		StringBuffer sb = new StringBuffer();
 		for (String key : body.keySet()) {
 			sb.append(key).append("=").append(body.get(key)).append("&");
@@ -138,13 +138,13 @@ public class ResponseObject extends JSONObject {
 		return putResponsObject(urlOffset, oauth2AccessToken, headers, sbody);
 	}
 
-	public static ResponseObject postResponsObject(String urlOffset, OAuth2AccessToken oauth2AccessToken, Map<String, String> headers, Map<String,Object> body) throws ClientProtocolException, IOException, URISyntaxException {
+	public static ResponseObject postResponsObject(String urlOffset, OAuth2AccessToken oauth2AccessToken, Map<String, String> headers, Map<String,Object> body) throws ClientProtocolException, IOException, URISyntaxException, JSONException {
 		JSONObject jo = JsonUtil.convertMapToJson(body);
 		StringEntity sbody = new StringEntity(jo.toString());
 		return postResponsObject(urlOffset, oauth2AccessToken, headers, sbody);
 	}
 
-	public static ResponseObject putResponsObject(String urlOffset, OAuth2AccessToken oauth2AccessToken, Map<String, String> headers, StringEntity body) throws ClientProtocolException, IOException, URISyntaxException {
+	public static ResponseObject putResponsObject(String urlOffset, OAuth2AccessToken oauth2AccessToken, Map<String, String> headers, StringEntity body) throws ClientProtocolException, IOException, URISyntaxException, JSONException {
 		HttpPut request = new HttpPut();
 		request.setURI(new URL(oauth2AccessToken.getString(OAuth2AccessToken.Fields.target.name())+urlOffset).toURI()); 
 		request.setHeader("Content-Type", "application/x-www-form-urlencoded");
@@ -168,7 +168,7 @@ public class ResponseObject extends JSONObject {
 	/*
 	 * This method performs an authenticated POST request using the existing ouath token.
 	 */
-	public static ResponseObject postResponsObject(String urlOffset, OAuth2AccessToken oauth2AccessToken, Map<String, String> headers, StringEntity body) throws ClientProtocolException, IOException, URISyntaxException {
+	public static ResponseObject postResponsObject(String urlOffset, OAuth2AccessToken oauth2AccessToken, Map<String, String> headers, StringEntity body) throws ClientProtocolException, IOException, URISyntaxException, JSONException {
 		HttpPost request = new HttpPost();
 		request.setURI(new URL(oauth2AccessToken.getString(OAuth2AccessToken.Fields.target.name())+urlOffset).toURI()); 
 		log.info("Posting to "+request.getURI());

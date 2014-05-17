@@ -4,7 +4,6 @@ import java.io.FileInputStream;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 import java.util.logging.Logger;
@@ -18,7 +17,6 @@ import org.cloudfoundry.client.lib.domain.CloudDomain;
 import org.cloudfoundry.client.lib.domain.CloudOrganization;
 import org.cloudfoundry.client.lib.domain.CloudService;
 import org.cloudfoundry.client.lib.domain.CloudSpace;
-import org.cloudfoundry.client.lib.domain.Staging;
 
 public class ClientTest extends TestCase {
 	private static Logger log = Logger.getAnonymousLogger();
@@ -58,12 +56,15 @@ public class ClientTest extends TestCase {
 	}
 	
 	public void testDomains() {
-		List<CloudDomain> domains = cfc.getDomains();
-		assertTrue("No domains found",domains.size()>0);
-		log.info("Found "+domains.size()+" domains");
-		for (CloudDomain domain : domains) {
-			log.info("Domain 1:"+domain.toString());
-		}
+//		List<CloudDomain> domains = cfc.getDomains();
+//		assertTrue("No domains found",domains.size()>0);
+//		log.info("Found "+domains.size()+" domains");
+//		for (CloudDomain domain : domains) {
+//			log.info("Domain 1:"+domain.toString());
+//		}
+		
+		// test create
+		cfc.addDomain("xxx");
 	}
 	
 	public void testOrganisations() {
@@ -80,11 +81,16 @@ public class ClientTest extends TestCase {
 	}
 	
 	public void testApps() {	
+//INFO: App 1:CloudApplication [staging=Staging [command=null buildpack=null stack=lucid64 healthCheckTimeout=null], instances=1, name=app1, memory=512, diskQuota=1024, state=STARTED, debug=null, uris=[bb.ng.bluemix.net],services=[service 1.1, service 1.2], env=[]]
+//INFO: App 1:CloudApplication [staging=Staging [command=null buildpack=null stack=lucid64 healthCheckTimeout=null], instances=1, name=app1, memory=512, diskQuota=1024, state=STARTED, debug=suspend, uris=[bb.ng.bluemix.net],services=null, env=[]]
+				
 		List<CloudApplication> apps = cfc.getApplications();
 		assertTrue("No apps found",apps.size()>0);
 		log.info("Found "+apps.size()+" apps");
 		for (CloudApplication app : apps) {
 			log.info("App 1:"+app.toString());
+			String fwk = (String) app.getStaging().getStack();//.get("model");
+			assertNotNull(app.getStaging());
 		}
 		
 		// create an app
@@ -98,7 +104,7 @@ public class ClientTest extends TestCase {
 		// delete the app
 	}
 
-	public void testConnectviaClient() throws Throwable {
+	public void testServices() throws Throwable {
 		//		for (CloudOrganization c : cfc.getOrganizations()) {
 		//			System.out.println(c.toString());
 		//		}
@@ -112,8 +118,8 @@ public class ClientTest extends TestCase {
 
 		List<CloudService> services = cfc.getServices();
 		for (CloudService s : services) {
-			System.out.println("1:"+s.toString());
-			System.out.println("2:"+cfc.getService(s.getName()));
+			assertNotNull("Service name was null",s.getName());
+			assertNotNull("Provider was null",s.getProvider());
 		}
 	}
 

@@ -5,7 +5,7 @@ import org.cloudfoundry.client.ibmlib.OAuth2AccessToken;
 public class CloudCredentials {
 
 	private String email, password, clientId, clientSecret, proxyUser;
-	OAuth2AccessToken token;
+	private OAuth2AccessToken token;
 	
 	/**
 	 * Create credentials using email and password.
