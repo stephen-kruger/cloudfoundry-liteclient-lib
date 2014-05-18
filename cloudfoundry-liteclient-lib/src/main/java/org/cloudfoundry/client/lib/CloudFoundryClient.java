@@ -34,9 +34,11 @@ package org.cloudfoundry.client.lib;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -45,6 +47,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.logging.Logger;
 
+import org.apache.http.HttpStatus;
 import org.apache.http.client.ClientProtocolException;
 import org.cloudfoundry.client.lib.CloudFoundryOperations;
 import org.cloudfoundry.client.lib.StartingInfo;
@@ -96,6 +99,7 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 	private URL cloudControllerUrl;
 	private OAuth2AccessToken token;
 	private CloudSpace sessionSpace;
+	private List<CloudApplication> applications;
 
 	/**
 	 * Construct client for anonymous user. Useful only to get to the '/info' endpoint.
@@ -312,7 +316,7 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 
 	public OAuth2AccessToken login() throws ClientProtocolException, URISyntaxException, IOException, JSONException {
 		token=OAuth2AccessToken.getLoginResponse(cloudControllerUrl.toString(),getCloudInfo(), credentials);//cc.login();
-		//		sessionSpace = validateSpaceAndOrg(spaceName, orgName);
+		//sessionSpace = validateSpaceAndOrg(spaceName, orgName);
 		return token;
 	}
 
@@ -321,21 +325,23 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 	}
 
 	public List<CloudApplication> getApplications() {
-		List<CloudApplication> applications = new ArrayList<CloudApplication>();
-		try {
-			JSONArray ja = ResponseObject.getResources("/v2/apps?inline-relations-depth=1", token);
-			for (int i = 0; i < ja.length(); i++) {
-				JSONObject resource = ja.getJSONObject(i);
-				CloudApplication app = new CloudApplication(token,resource.getJSONObject("entity"),resource.getJSONObject("metadata"));
-				applications.add(app);
+		if (applications==null) {
+			applications = new ArrayList<CloudApplication>();
+			try {
+				JSONArray ja = ResponseObject.getResources("/v2/apps?inline-relations-depth=1", token);
+				for (int i = 0; i < ja.length(); i++) {
+					JSONObject resource = ja.getJSONObject(i);
+					CloudApplication app = new CloudApplication(token,resource.getJSONObject("entity"),resource.getJSONObject("metadata"));
+					applications.add(app);
+				}
+				//			System.out.println(appResponse.toString(3));
+				for (CloudApplication app : applications) {
+					app.setUris(findApplicationUris(app.getMeta().getGuid()));
+				}
+			} 
+			catch (Throwable e) {
+				e.printStackTrace();
 			}
-			//			System.out.println(appResponse.toString(3));
-			for (CloudApplication app : applications) {
-				app.setUris(findApplicationUris(app.getGuid()));
-			}
-		} 
-		catch (Throwable e) {
-			e.printStackTrace();
 		}
 		return applications;
 	}
@@ -361,14 +367,22 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 		return uris;
 	}
 
-	public CloudApplication getApplication(String appName) {
-		log.severe(NYI);
-		return null;//cc.getApplication(appName);
+	public CloudApplication getApplication(String appName) throws CloudFoundryException {
+		List<CloudApplication> apps = getApplications();
+		for (CloudApplication app : apps) {
+			if (app.getName().equals(appName)) {
+				return app;
+			}
+		}
+		throw new CloudFoundryException(HttpStatus.SC_NOT_FOUND, "Not Found","Application not found");
 	}
 
 	public CloudApplication getApplication(UUID appGuid) {
-		log.severe(NYI);
-		return null;//cc.getApplication(appGuid);
+		for (CloudApplication app : getApplications()) {
+			if (app.getMeta().getGuid().equals(appGuid))
+				return app;
+		}
+		return null;
 	}
 
 	public ApplicationStats getApplicationStats(String appName) {
@@ -616,9 +630,42 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 	//		cc.uploadApplication(appName, archive, callback);
 	//	}
 
-	public StartingInfo startApplication(String appName) {
-		log.severe(NYI);
-		return null;//cc.startApplication(appName);
+	public StartingInfo startApplication(String appName) throws CloudFoundryException {
+		CloudApplication app = getApplication(appName);
+		if (app.getState() != CloudApplication.AppState.STARTED) {
+			log.info("Starting application "+appName);
+			HashMap<String, Object> appRequest = new HashMap<String, Object>();
+			appRequest.put("state", CloudApplication.AppState.STARTED);
+			try {
+				ResponseObject ro = ResponseObject.putResponsObject("/v2/apps/"+app.getMeta().getGuid()+"?stage_async=true", token, null, appRequest);
+				
+				// now update cached services object with new values
+//				CloudApplication newApp = new CloudApplication(token,ro.getJSONObject("entity"),ro.getJSONObject("metadata"));
+//				updateCachedApps(newApp);
+				// force reload of apps
+				applications = null;
+				
+				// Return a starting info, even with a null staging log value, as a non-null starting info
+				// indicates that the response entity did have headers. The API contract is to return starting info
+				// if there are headers in the response, null otherwise.
+				JSONObject headers = ro.getJSONObject("headers");
+				if (headers.has("x-app-staging-log")) {
+					return new StartingInfo(URLDecoder.decode(headers.getString("x-app-staging-log"), "UTF-8"));
+				}
+				else {
+					return new StartingInfo(null);
+				}
+			}
+			catch (Throwable t) {
+				t.printStackTrace();
+			}
+			// Return the starting info even if decoding failed or staging file is null
+			//				return new StartingInfo(stagingFile);
+			return null;
+			//			}
+		}
+		log.info("App was already started");
+		return null;
 	}
 
 	public void debugApplication(String appName, DebugMode mode) {
@@ -626,14 +673,31 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 		//cc.debugApplication(appName, mode);
 	}
 
-	public void stopApplication(String appName) {
-		log.severe(NYI);
-		//cc.stopApplication(appName);
+	public void stopApplication(String appName) throws CloudFoundryException {
+		CloudApplication app = getApplication(appName);
+		if (app.getState() != CloudApplication.AppState.STOPPED) {
+			HashMap<String, Object> appRequest = new HashMap<String, Object>();
+			appRequest.put("state", CloudApplication.AppState.STOPPED);
+			String urlOffset = "/v2/apps/"+app.getMeta().getGuid().toString();
+			try {
+				ResponseObject ro = ResponseObject.putResponsObject(urlOffset, token, null, appRequest);
+				// now update cached services object with new values
+//				CloudApplication newApp = new CloudApplication(token,ro.getJSONObject("entity"),ro.getJSONObject("metadata"));
+				// force reload of apps
+				applications = null;
+			}
+			catch (Throwable t) {
+				t.printStackTrace();
+			}
+		}
+		else {
+			log.info("Application already stopped :"+appName);
+		}
 	}
 
-	public StartingInfo restartApplication(String appName) {
-		log.severe(NYI);
-		return null;//cc.restartApplication(appName);
+	public StartingInfo restartApplication(String appName) throws CloudFoundryException {
+		stopApplication(appName);
+		return startApplication(appName);
 	}
 
 	public void deleteApplication(String appName) {

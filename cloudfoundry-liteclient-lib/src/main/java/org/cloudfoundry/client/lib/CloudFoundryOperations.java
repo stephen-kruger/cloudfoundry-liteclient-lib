@@ -146,8 +146,9 @@ public interface CloudFoundryOperations {
 	 *
 	 * @param appName name of the app
 	 * @return the cloud application
+	 * @throws CloudFoundryException 
 	 */
-	CloudApplication getApplication(String appName);
+	CloudApplication getApplication(String appName) throws CloudFoundryException;
 
 	/**
 	 * Get application stats for the app with the specified name.
@@ -247,8 +248,9 @@ public interface CloudFoundryOperations {
 	 * @param appName
 	 *            name of application
 	 * @return Starting info containing response headers, if headers are present in the response. If there are no headers, return null.
+	 * @throws CloudFoundryException 
 	 */
-	StartingInfo startApplication(String appName);
+	StartingInfo startApplication(String appName) throws CloudFoundryException;
 
 	/**
 	 * Debug application.
@@ -262,15 +264,17 @@ public interface CloudFoundryOperations {
 	 * Stop application.
 	 *
 	 * @param appName name of application
+	 * @throws CloudFoundryException 
 	 */
-	void stopApplication(String appName);
+	void stopApplication(String appName) throws CloudFoundryException;
 
 	/**
 	 * Restart application.
 	 *
 	 * @param appName name of application
+	 * @throws CloudFoundryException 
 	 */
-	StartingInfo restartApplication(String appName);
+	StartingInfo restartApplication(String appName) throws CloudFoundryException;
 
 	/**
 	 * Delete application.

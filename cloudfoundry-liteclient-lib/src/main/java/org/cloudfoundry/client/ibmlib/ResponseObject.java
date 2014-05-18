@@ -2,6 +2,7 @@ package org.cloudfoundry.client.ibmlib;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UnsupportedEncodingException;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -13,6 +14,7 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.logging.Logger;
 
+import org.apache.http.Header;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
@@ -120,49 +122,46 @@ public class ResponseObject extends JSONObject {
 		return new ResponseObject(entity.getContent());
 	}
 
-	public static ResponseObject puttResponsObject(String urlOffset, OAuth2AccessToken oauth2AccessToken, Map<String, String> headers, Map<String,Object> body) throws ClientProtocolException, IOException, URISyntaxException, JSONException {
-		StringBuffer sb = new StringBuffer();
-		for (String key : body.keySet()) {
-			sb.append(key).append("=").append(body.get(key)).append("&");
-		}
-		StringEntity sbody = new StringEntity(sb.substring(0,sb.length()-1).toString());
-		return putResponsObject(urlOffset, oauth2AccessToken, headers, sbody);
+	public static ResponseObject postResponsObject(String urlOffset, OAuth2AccessToken oauth2AccessToken, Map<String, String> headers, Map<String,Object> body) throws ClientProtocolException, IOException, URISyntaxException, JSONException {
+		return postResponsObject(urlOffset, oauth2AccessToken, headers, getStringEntity(body));
 	}
 
 	public static ResponseObject putResponsObject(String urlOffset, OAuth2AccessToken oauth2AccessToken, Map<String, String> headers, Map<String,Object> body) throws ClientProtocolException, IOException, URISyntaxException, JSONException {
-		StringBuffer sb = new StringBuffer();
-		for (String key : body.keySet()) {
-			sb.append(key).append("=").append(body.get(key)).append("&");
-		}
-		StringEntity sbody = new StringEntity(sb.substring(0,sb.length()-1).toString());
-		return putResponsObject(urlOffset, oauth2AccessToken, headers, sbody);
+		return putResponsObject(urlOffset, oauth2AccessToken, headers, getStringEntity(body));
 	}
-
-	public static ResponseObject postResponsObject(String urlOffset, OAuth2AccessToken oauth2AccessToken, Map<String, String> headers, Map<String,Object> body) throws ClientProtocolException, IOException, URISyntaxException, JSONException {
-		JSONObject jo = JsonUtil.convertMapToJson(body);
-		StringEntity sbody = new StringEntity(jo.toString());
-		return postResponsObject(urlOffset, oauth2AccessToken, headers, sbody);
-	}
-
+	
 	public static ResponseObject putResponsObject(String urlOffset, OAuth2AccessToken oauth2AccessToken, Map<String, String> headers, StringEntity body) throws ClientProtocolException, IOException, URISyntaxException, JSONException {
 		HttpPut request = new HttpPut();
 		request.setURI(new URL(oauth2AccessToken.getString(OAuth2AccessToken.Fields.target.name())+urlOffset).toURI()); 
 		request.setHeader("Content-Type", "application/x-www-form-urlencoded");
 		request.setHeader("Accept", "application/json;charset=utf-8");
 		request.setHeader("Authorization", "bearer "+oauth2AccessToken.getString(OAuth2AccessToken.Fields.access_token.name()));
-
-		for (String key : headers.keySet()) {
-			request.setHeader(key, headers.get(key));			
+		
+		if (headers!=null) {
+			for (String key : headers.keySet()) {
+				request.setHeader(key, headers.get(key));			
+			}
 		}
+		
 		request.setEntity(body);
 
 		HttpClient client = new DefaultHttpClient();
 		HttpResponse response = client.execute(request);	
 		HttpEntity entity = response.getEntity();
-		if (response.getStatusLine().getStatusCode()!=HttpStatus.SC_OK) {
+		int returnCode = response.getStatusLine().getStatusCode();
+		if (returnCode!=HttpStatus.SC_CREATED) {
 			throw new ClientProtocolException(response.getStatusLine().getReasonPhrase());
 		}
-		return new ResponseObject(entity.getContent());
+		// copy the headers into the response object in case caller needs them, some silly
+		// api contract thought this is a good way to communicate information.
+		Header[] rheaders = response.getAllHeaders();
+		JSONObject reponseHeaders = new JSONObject();
+		for (int i = 0; i < rheaders.length; i++) {
+			reponseHeaders.put(rheaders[i].getName(), rheaders[i].getValue());
+		}
+		ResponseObject ro = new ResponseObject(entity.getContent());
+		ro.put("headers", reponseHeaders);
+		return ro;
 	}
 
 	/*
@@ -180,7 +179,6 @@ public class ResponseObject extends JSONObject {
 				request.setHeader(key, headers.get(key));			
 			}
 		}
-		log.info("Body "+streamToString(body.getContent()));
 		request.setEntity(body);
 
 		HttpClient client = new DefaultHttpClient();
@@ -216,4 +214,8 @@ public class ResponseObject extends JSONObject {
 		return null;
 	}
 
+	private static StringEntity getStringEntity(Map<String, Object> body) throws UnsupportedEncodingException {
+		return new StringEntity(JsonUtil.convertMapToJson(body).toString());
+	}
+	
 }

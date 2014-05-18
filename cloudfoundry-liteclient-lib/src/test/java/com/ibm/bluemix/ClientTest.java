@@ -12,6 +12,7 @@ import junit.framework.TestCase;
 
 import org.cloudfoundry.client.lib.CloudCredentials;
 import org.cloudfoundry.client.lib.CloudFoundryClient;
+import org.cloudfoundry.client.lib.CloudFoundryException;
 import org.cloudfoundry.client.lib.domain.CloudApplication;
 import org.cloudfoundry.client.lib.domain.CloudDomain;
 import org.cloudfoundry.client.lib.domain.CloudOrganization;
@@ -80,7 +81,7 @@ public class ClientTest extends TestCase {
 		
 	}
 	
-	public void testApps() {	
+	public void testApps() throws CloudFoundryException {	
 //INFO: App 1:CloudApplication [staging=Staging [command=null buildpack=null stack=lucid64 healthCheckTimeout=null], instances=1, name=app1, memory=512, diskQuota=1024, state=STARTED, debug=null, uris=[bb.ng.bluemix.net],services=[service 1.1, service 1.2], env=[]]
 //INFO: App 1:CloudApplication [staging=Staging [command=null buildpack=null stack=lucid64 healthCheckTimeout=null], instances=1, name=app1, memory=512, diskQuota=1024, state=STARTED, debug=suspend, uris=[bb.ng.bluemix.net],services=null, env=[]]
 				
@@ -91,6 +92,7 @@ public class ClientTest extends TestCase {
 			log.info("App 1:"+app.toString());
 			String fwk = (String) app.getStaging().getStack();//.get("model");
 			assertNotNull(app.getStaging());
+			cfc.restartApplication(app.getName());
 		}
 		
 		// create an app

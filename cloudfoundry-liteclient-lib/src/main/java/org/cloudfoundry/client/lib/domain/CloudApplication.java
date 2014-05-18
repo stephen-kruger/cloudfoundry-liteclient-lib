@@ -54,7 +54,6 @@ public class CloudApplication extends CloudEntity {
 		url
 	}
 	private JSONObject entity;
-//	private JSONObject metadata;
 	private OAuth2AccessToken oauth2AccessToken;
 	private int diskQuota;
 	private int memory;
@@ -63,7 +62,6 @@ public class CloudApplication extends CloudEntity {
 	private int instances;
 	private Staging staging;
 	private AppState state;
-	//	private int runningInstances;
 	private List<String> uris;
 	private Integer runningInstances;
 	private DebugMode debug;
@@ -72,10 +70,6 @@ public class CloudApplication extends CloudEntity {
 		this.oauth2AccessToken = oauth2AccessToken;
 		this.entity = entity;
 		setMeta(new Meta(metadata));
-
-		//		System.out.println("---------------------");
-		//				System.out.println(metadata.toString(3));
-		//		System.out.println(entity.toString(3));
 
 		// populate the object fields
 		try {
@@ -101,10 +95,6 @@ public class CloudApplication extends CloudEntity {
 			else
 				setDebug(DebugMode.valueOf(entity.getString(EntityField.debug.name())));
 
-			//				long created = parse(Long.class, metaValue.get("created"));
-			//				Date createdDate = created != 0 ? new Date(created * 1000) : null;
-			//				setMeta(new Meta(null, createdDate, null));
-			//
 			String command = null;
 			if (entity.has("command")) {
 				if (entity.isNull("comand"))
@@ -119,11 +109,10 @@ public class CloudApplication extends CloudEntity {
 				else
 					buildpackUrl = entity.getString("buildpack");
 			}
-			CloudStack stack = new CloudStack(entity.getJSONObject("stack").getJSONObject("entity"),entity.getJSONObject("stack").getJSONObject("metadata"));
-			setStaging(new Staging(command, buildpackUrl,stack.getName(),null));
-			//				
-			//			}
-			//------------------
+			if (entity.has("stack")) {
+				CloudStack stack = new CloudStack(entity.getJSONObject("stack").getJSONObject("entity"),entity.getJSONObject("stack").getJSONObject("metadata"));
+				setStaging(new Staging(command, buildpackUrl,stack.getName(),null));
+			}
 		} 
 		catch (JSONException e) {
 			e.printStackTrace();
@@ -161,81 +150,6 @@ public class CloudApplication extends CloudEntity {
 	public void setServices(List<String> services) {
 		this.services = services;
 	}
-
-	//	private List<Map<String, Object>> getAllResources(String urlOffset) {
-	//		List<Map<String, Object>> allResources = new ArrayList<Map<String, Object>>();
-	//		try {
-	//
-	//			ResponseObject ro = ResponseObject.getResponsObject(urlOffset, oauth2AccessToken);
-	//			Map<String, Object> respMap = ro.convertJsonToMap();
-	//			List<Map<String, Object>> newResources = (List<Map<String, Object>>) respMap.get("resources");
-	//			if (newResources != null && newResources.size() > 0) {
-	//				allResources.addAll(newResources);
-	//			}
-	//			String nextUrl = (String) respMap.get("next_url");
-	//			while (nextUrl != null && nextUrl.length() > 0) {
-	//				nextUrl = addPageOfResources(nextUrl, allResources);
-	//			}
-	//		}
-	//		catch (Throwable t) {
-	//			t.printStackTrace();
-	//		}
-	//		return allResources;
-	//	}
-
-	//	private String addPageOfResources(String nextUrl, List<Map<String, Object>> allResources) throws URISyntaxException, IOException {
-	//		ResponseObject ro = ResponseObject.getResponsObject(nextUrl, oauth2AccessToken);
-	//
-	//		Map<String, Object> respMap = ro.convertJsonToMap();
-	//		List<Map<String, Object>> newResources = (List<Map<String, Object>>) respMap.get("resources");
-	//		if (newResources != null && newResources.size() > 0) {
-	//			allResources.addAll(newResources);
-	//		}
-	//		return (String) respMap.get("next_url");
-	//	}
-
-	//	private void fillInEmbeddedResource(Map<String, Object> resource, String... resourcePath) throws JSONException, IllegalStateException, IOException, URISyntaxException {
-	//		if (resourcePath.length == 0) {
-	//			return;
-	//		}
-	//		Map<String, Object> entity = (Map<String, Object>) resource.get("entity");
-	//
-	//		String headKey = resourcePath[0];
-	//		String[] tailPath = Arrays.copyOfRange(resourcePath, 1, resourcePath.length);
-	//
-	//		if (!entity.containsKey(headKey)) {
-	//			String pathUrl = entity.get(headKey + "_url").toString();
-	//			ResponseObject ro = ResponseObject.getResponsObject(pathUrl, oauth2AccessToken);
-	//			Object response = ro.convertJsonToMap();
-	//			if (response instanceof Map) {
-	//				Map<String, Object> responseMap = (Map<String, Object>) response;
-	//				if (responseMap.containsKey("resources")) {
-	//					response = responseMap.get("resources");
-	//				}
-	//			}
-	//			entity.put(headKey, response);
-	//		}
-	//		Object embeddedResource = entity.get(headKey);
-	//
-	//		if (embeddedResource instanceof Map) {
-	//			Map<String, Object> embeddedResourceMap = (Map<String, Object>) embeddedResource;
-	//			//entity = (Map<String, Object>) embeddedResourceMap.get("entity");
-	//			fillInEmbeddedResource(embeddedResourceMap, tailPath);
-	//		} else if (embeddedResource instanceof List) {
-	//			List<Object> embeddedResourcesList = (List<Object>) embeddedResource;
-	//			for (Object r: embeddedResourcesList) {
-	//				fillInEmbeddedResource((Map<String, Object>)r, tailPath);
-	//			}
-	//		} else {
-	//			// no way to proceed
-	//			return;
-	//		}
-	//	}
-
-	//	private boolean hasEmbeddedResource(Map<String, Object> resource, String resourceKey) {
-	//		Map<String, Object> entity = (Map<String, Object>) resource.get("entity");
-	//		return entity.containsKey(resourceKey) || entity.containsKey(resourceKey + "_url");
-	//	}
 
 	public String getName() {
 		try {
@@ -349,15 +263,6 @@ public class CloudApplication extends CloudEntity {
 				+ ", memory=" + memory + ", diskQuota=" + diskQuota
 				+ ", state=" + state + ", debug=" + getDebug() + ", uris=" + getUris() + ",services=" + getServices()
 				+ ", env=" + env + "]";
-	}
-
-	public UUID getGuid() {
-		try {
-			return getMeta().getGuid();
-		} catch (JSONException e) {
-			e.printStackTrace();
-			return null;
-		}
 	}
 
 	public int getRunningInstances() {
