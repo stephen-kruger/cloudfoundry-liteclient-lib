@@ -1,8 +1,10 @@
 package com.ibm.bluemix;
 
 import java.io.FileInputStream;
+import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.List;
 import java.util.Properties;
@@ -15,9 +17,12 @@ import org.cloudfoundry.client.lib.CloudFoundryClient;
 import org.cloudfoundry.client.lib.CloudFoundryException;
 import org.cloudfoundry.client.lib.domain.CloudApplication;
 import org.cloudfoundry.client.lib.domain.CloudDomain;
+import org.cloudfoundry.client.lib.domain.CloudInfo;
+import org.cloudfoundry.client.lib.domain.CloudInfo.Limits;
 import org.cloudfoundry.client.lib.domain.CloudOrganization;
 import org.cloudfoundry.client.lib.domain.CloudService;
 import org.cloudfoundry.client.lib.domain.CloudSpace;
+import org.json.JSONException;
 
 public class ClientTest extends TestCase {
 	private static Logger log = Logger.getAnonymousLogger();
@@ -79,6 +84,17 @@ public class ClientTest extends TestCase {
 			log.info(" Domains:"+domains.size());
 		}
 		
+	}
+	
+	public void testCloudInfo() throws JSONException, IllegalStateException, IOException, URISyntaxException {
+		log.info("==========================");
+		CloudInfo cloudInfo = cfc.getCloudInfo();
+		Limits limits = cloudInfo.getLimits();
+		log.info("MaxTotalMemory:"+limits.getMaxTotalMemory());
+		log.info("MaxApps:"+limits.getMaxApps());
+		log.info("MaxServices:"+limits.getMaxServices());
+		log.info("MaxUrisPerApp:"+limits.getMaxUrisPerApp());
+
 	}
 	
 	public void testApps() throws CloudFoundryException {	
