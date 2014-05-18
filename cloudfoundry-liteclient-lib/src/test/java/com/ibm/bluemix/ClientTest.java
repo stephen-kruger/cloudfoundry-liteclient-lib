@@ -136,8 +136,14 @@ public class ClientTest extends TestCase {
 
 		List<CloudService> services = cfc.getServices();
 		for (CloudService s : services) {
+//			>>>mongodb
+//			>>>BLUAcceleration
+//			>>>TimeSeriesDatabase
+//			>>>InternetOfThings
 			assertNotNull("Service name was null",s.getName());
-			assertNotNull("Provider was null",s.getProvider());
+			assertNotNull("Service label was null",s.getLabel());
+			System.out.println(">>>"+s.getProvider());
+//			assertNotNull("Provider was null",s.getProvider());
 		}
 	}
 

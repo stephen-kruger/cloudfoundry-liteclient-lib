@@ -16,6 +16,11 @@
 
 package org.cloudfoundry.client.lib.domain;
 
+import java.io.IOException;
+import java.net.URISyntaxException;
+
+import org.cloudfoundry.client.ibmlib.OAuth2AccessToken;
+import org.cloudfoundry.client.ibmlib.ResponseObject;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -41,16 +46,30 @@ public class CloudService extends CloudEntity {
 		super(meta, name);
 	}
 
-	public CloudService(Meta meta, JSONObject entity) throws JSONException {
+	public CloudService(Meta meta, JSONObject entity, OAuth2AccessToken token) throws JSONException {
 		super(meta, entity.getString("name"));
-//		System.out.println("----------------------------------");
 		if ((entity.has("gateway_data")&&(!entity.isNull("gateway_data")))) {
-//			System.out.println(entity.get("gateway_data"));
 			if (entity.getJSONObject("gateway_data").has("plan")) {
-//				System.out.println(entity.getJSONObject("gateway_data").toString(3));
 				setVersion(entity.getJSONObject("gateway_data").getString("version"));
 				setPlan(entity.getJSONObject("gateway_data").getString("plan"));
 			}
+		}
+
+		// fill in the details
+		try {
+//			System.out.println(entity.toString(3));
+			if (entity.has("service_plan")) {
+				JSONObject servicePlanEntity = entity.getJSONObject("service_plan").getJSONObject("entity");
+				ResponseObject ro = ResponseObject.getResponsObject(servicePlanEntity.getString("service_url"), token);
+				setLabel(ro.getJSONObject("entity").getString("label"));
+				if (!ro.getJSONObject("entity").isNull("provider"))
+					setProvider(ro.getJSONObject("entity").getString("provider"));
+				setPlan(servicePlanEntity.getString("name"));
+			}
+
+		} 
+		catch (Throwable e) {
+			e.printStackTrace();
 		}
 	}
 
