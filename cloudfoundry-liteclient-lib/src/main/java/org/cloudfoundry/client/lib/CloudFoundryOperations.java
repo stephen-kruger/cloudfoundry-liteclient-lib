@@ -338,8 +338,9 @@ public interface CloudFoundryOperations {
 	 *
 	 * @param appName name of appplication
 	 * @param staging staging information for the app
+	 * @throws CloudFoundryException 
 	 */
-	void updateApplicationStaging(String appName, Staging staging);
+	void updateApplicationStaging(String appName, Staging staging) throws CloudFoundryException;
 
 	/**
 	 * Update application URIs.
@@ -445,8 +446,9 @@ public interface CloudFoundryOperations {
 	 *
 	 * @param name the name of the stack to get
 	 * @return the stack, or null if not found
+	 * @throws CloudFoundryException 
 	 */
-	CloudStack getStack(String name);
+	CloudStack getStack(String name) throws CloudFoundryException;
 
 	/**
 	 * Get file from the deployed application.
@@ -585,15 +587,17 @@ public interface CloudFoundryOperations {
 	 * Get list of all private domains.
 	 *
 	 * @return list of private domains
+	 * @throws CloudFoundryException 
 	 */
-	List<CloudDomain> getPrivateDomains();
+	List<CloudDomain> getPrivateDomains() throws CloudFoundryException;
 
 	/**
 	 * Get list of all shared domains.
 	 *
 	 * @return list of shared domains
+	 * @throws CloudFoundryException 
 	 */
-	List<CloudDomain> getSharedDomains();
+	List<CloudDomain> getSharedDomains() throws CloudFoundryException;
 
 	/**
 	 * Get list of all domain shared and private domains.
@@ -639,8 +643,9 @@ public interface CloudFoundryOperations {
 	 *
 	 * @param host the host of the route to register
 	 * @param domainName the domain of the route to register
+	 * @throws CloudFoundryException 
 	 */
-	void addRoute(String host, String domainName);
+	void addRoute(String host, String domainName) throws CloudFoundryException;
 
 	/**
 	 * Delete a registered route from the space of the current session.
