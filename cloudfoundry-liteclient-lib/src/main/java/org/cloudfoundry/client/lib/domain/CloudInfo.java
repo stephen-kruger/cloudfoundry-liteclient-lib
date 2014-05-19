@@ -145,6 +145,9 @@ public class CloudInfo {
 		this.limits = limits;
 		this.usage = usage;
 		this.allowDebug = allowDebug;
+		// strange hack, think this method is on the wrong object
+		if (limits!=null)
+			usage.apps = limits.maxUrisPerApp;
 	}
 
 	public Limits getLimits() {
@@ -196,7 +199,7 @@ public class CloudInfo {
 		private int maxUrisPerApp;
 		private int maxServices;
 
-		public Limits(JSONObject jo) {
+		public Limits(JSONObject jo) throws JSONException {
 			maxApps = jo.getInt("apps");
 			maxTotalMemory = jo.getInt("memory");
 			maxUrisPerApp = jo.getInt("app_uris");
@@ -231,8 +234,9 @@ public class CloudInfo {
 		private int apps;
 		private int totalMemory;
 		private int services;
+		private int urisPerApp;
 
-		public Usage(JSONObject data) {
+		public Usage(JSONObject data) throws JSONException {
 			apps = data.getInt("apps");
 			totalMemory = data.getInt("memory");
 			services = data.getInt("services");
@@ -242,6 +246,7 @@ public class CloudInfo {
 			apps = Integer.MAX_VALUE;
 			totalMemory = Integer.MAX_VALUE;
 			services = Integer.MAX_VALUE;
+			urisPerApp = Integer.MAX_VALUE;
 		}
 
 		public int getApps() {
@@ -254,6 +259,10 @@ public class CloudInfo {
 
 		public int getServices() {
 			return services;
+		}
+
+		public int getUrisPerApp() {
+			return urisPerApp;
 		}
 	}
 }

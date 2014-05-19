@@ -108,6 +108,7 @@ public class ClientTest extends TestCase {
 			log.info("App 1:"+app.toString());
 			String fwk = (String) app.getStaging().getStack();//.get("model");
 			assertNotNull(app.getStaging());
+			assertNotNull(cfc.getApplicationStats(app.getName()));
 			cfc.restartApplication(app.getName());
 		}
 		

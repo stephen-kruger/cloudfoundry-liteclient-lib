@@ -155,8 +155,9 @@ public interface CloudFoundryOperations {
 	 *
 	 * @param appName name of the app
 	 * @return the cloud application stats
+	 * @throws CloudFoundryException 
 	 */
-	ApplicationStats getApplicationStats(String appName);
+	ApplicationStats getApplicationStats(String appName) throws CloudFoundryException;
 
 	/**
 	 * Create application.

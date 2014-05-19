@@ -18,9 +18,13 @@ package org.cloudfoundry.client.lib.domain;
 
 //import static org.cloudfoundry.client.lib.util.CloudUtil.parse;
 
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
-import java.util.Map;
+
+import org.cloudfoundry.client.ibmlib.ResponseObject;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 public class InstanceStats {
 
@@ -31,11 +35,11 @@ public class InstanceStats {
 		private double mem;
 		private Date time;
 
-		public Usage(Map<String, Object> attributes) {
-			this.time = null;//parseDate(parse(String.class, attributes.get("time")));
-			this.cpu = 0;//parse(Double.class, attributes.get("cpu"));
-			this.disk = 0;//parse(Integer.class, attributes.get("disk"));
-			this.mem = 0;//parse(Double.class, attributes.get("mem"));
+		public Usage(JSONObject attributes) {
+			this.time = ResponseObject.parseDate(attributes.getString("time"));
+			this.cpu = attributes.getDouble("cpu");
+			this.disk = attributes.getInt("disk");
+			this.mem = attributes.getDouble("mem");
 		}
 
 		public double getCpu() {
@@ -68,43 +72,34 @@ public class InstanceStats {
 	private List<String> uris;
 	private Usage usage;
 
-//	@SuppressWarnings("unchecked")
-//	public InstanceStats(String id, Map<String, Object> attributes) {
-//		this.id = id;
-//		String instanceState = parse(String.class, attributes.get("state"));
-//		this.state = InstanceState.valueOfWithDefault(instanceState);
-//		Map<String, Object> stats = parse(Map.class, attributes.get("stats"));
-//		if (stats != null) {
-//			this.cores = parse(Integer.class, stats.get("cores"));
-//			this.name = parse(String.class, stats.get("name"));
-//			Map<String, Object> usageValue = parse(Map.class,
-//					stats.get("usage"));
-//			if (usageValue != null) {
-//				this.usage = new Usage(usageValue);
-//			}
-//			this.diskQuota = parse(Long.class, stats.get("disk_quota"));
-//			this.port = parse(Integer.class, stats.get("port"));
-//			this.memQuota = parse(Long.class, stats.get("mem_quota"));
-//			List<String> statsValue = parse(List.class, stats.get("uris"));
-//			if (statsValue != null) {
-//				this.uris = Collections.unmodifiableList(statsValue);
-//			}
-//			this.fdsQuota = parse(Integer.class, stats.get("fds_quota"));
-//			this.host = parse(String.class, stats.get("host"));
-//			this.uptime = parse(Double.class, stats.get("uptime"));
-//		}
-//	}
-
-//	private static Date parseDate(String date) {
-//		// dates will be of the form 2011-04-07 09:11:50 +0000
-//		try {
-//			return new SimpleDateFormat("yyyy-MM-dd hh:mm:ss ZZZZZ").parse(date);
-//		}
-//		catch (ParseException e) {
-//			// TODO - not sure how best to handle this error
-//			return null;
-//		}
-//	}
+	public InstanceStats(String id, JSONObject attributes) {
+		this.id = id;
+		String instanceState = attributes.getString("state");
+		this.state = InstanceState.valueOfWithDefault(instanceState);
+		if (attributes.has("stats")) {
+			JSONObject stats = attributes.getJSONObject("stats");
+			if (stats.has("cores"))
+				this.cores = stats.getInt("cores");
+			this.name = stats.getString("name");
+			if (stats.has("usage")) {
+				JSONObject usageValue = stats.getJSONObject("usage");
+				this.usage = new Usage(usageValue);
+			}
+			this.diskQuota = stats.getLong("disk_quota");
+			this.port = stats.getInt("port");
+			this.memQuota = stats.getLong("mem_quota");
+			if (stats.has("uris")) {
+				List<String> statsValue = new ArrayList<String>();
+				JSONArray uriarray = stats.getJSONArray("uris");
+				for (int i = 0; i < uriarray.length();i++) {
+					statsValue.add(uriarray.getString(i));
+				}
+			}
+			this.fdsQuota = stats.getInt("fds_quota");
+			this.host = stats.getString("host");
+			this.uptime = stats.getDouble("uptime");
+		}
+	}
 
 	public int getCores() {
 		return cores;

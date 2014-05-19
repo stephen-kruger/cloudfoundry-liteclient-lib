@@ -66,7 +66,7 @@ public class CloudApplication extends CloudEntity {
 	private Integer runningInstances;
 	private DebugMode debug;
 
-	public CloudApplication(OAuth2AccessToken oauth2AccessToken,JSONObject entity, JSONObject metadata) {
+	public CloudApplication(OAuth2AccessToken oauth2AccessToken,JSONObject entity, JSONObject metadata) throws JSONException {
 		this.oauth2AccessToken = oauth2AccessToken;
 		this.entity = entity;
 		setMeta(new Meta(metadata));

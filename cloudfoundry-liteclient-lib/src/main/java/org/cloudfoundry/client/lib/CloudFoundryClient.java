@@ -65,6 +65,7 @@ import org.cloudfoundry.client.lib.domain.CloudServiceOffering;
 import org.cloudfoundry.client.lib.domain.CloudSpace;
 import org.cloudfoundry.client.lib.domain.CloudStack;
 import org.cloudfoundry.client.lib.domain.CrashesInfo;
+import org.cloudfoundry.client.lib.domain.InstanceStats;
 import org.cloudfoundry.client.lib.domain.InstancesInfo;
 import org.cloudfoundry.client.lib.domain.Staging;
 import org.cloudfoundry.client.lib.util.CloudEntityResourceMapper;
@@ -397,9 +398,33 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 		return null;
 	}
 
-	public ApplicationStats getApplicationStats(String appName) {
-		log.severe(NYI);
-		return null;//cc.getApplicationStats(appName);
+	public ApplicationStats getApplicationStats(String appName) throws CloudFoundryException {
+		CloudApplication app = getApplication(appName);
+		return doGetApplicationStats(app.getMeta().getGuid(), app.getState());
+	}
+
+	private ApplicationStats doGetApplicationStats(UUID appId, CloudApplication.AppState appState) {
+		List<InstanceStats> instanceList = new ArrayList<InstanceStats>();
+		if (appState.equals(CloudApplication.AppState.STARTED)) {
+			try {			
+				JSONObject iinfo = getInstanceInfoForApp(appId, "stats");
+				for (Object instanceId : iinfo.keySet()) {
+					InstanceStats instanceStats = new InstanceStats(instanceId.toString(), iinfo.getJSONObject(instanceId.toString()));
+					instanceList.add(instanceStats);
+				}			
+
+			}
+			catch (Throwable t) {
+				t.printStackTrace();
+			}
+
+		}
+		return new ApplicationStats(instanceList);
+	}
+
+	private JSONObject getInstanceInfoForApp(UUID appId, String path) throws JSONException, IllegalStateException, IOException, URISyntaxException {
+		String urlOffset = "/v2/apps/"+appId.toString()+"/" + path;
+		return ResponseObject.getResponsObject(urlOffset, token);
 	}
 
 	public void createApplication(String appName, Staging staging, Integer memory, List<String> uris, List<String> serviceNames) {
@@ -866,22 +891,22 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 		//		urlPath = urlPath + "/spaces/{space}";
 		//	}
 
-//		try {
-//			String urlPath = "/v2/service_instances?q="+"name:" + URLEncoder.encode(serviceName,"UTF-9")+"&return_user_provided_service_instances=true";
-//			JSONArray resources = ResponseObject.getResources(urlPath, token);
-//			for (int i=0; i < resources.length();i++) {
-//				CloudService service = new CloudService(new Meta(resources.getJSONObject(0).getJSONObject("metadata")),
-//						resources.getJSONObject(0).getJSONObject("entity"),
-//						token);
-//				if (serviceName.equals(service.getName()))
-//					return service;
-//			}
-//			//			System.out.println(resources.toString());
-//			//			return new CloudService(new Meta(metadata),entity)
-//		}
-//		catch (Throwable t) {
-//			t.printStackTrace();
-//		}
+		//		try {
+		//			String urlPath = "/v2/service_instances?q="+"name:" + URLEncoder.encode(serviceName,"UTF-9")+"&return_user_provided_service_instances=true";
+		//			JSONArray resources = ResponseObject.getResources(urlPath, token);
+		//			for (int i=0; i < resources.length();i++) {
+		//				CloudService service = new CloudService(new Meta(resources.getJSONObject(0).getJSONObject("metadata")),
+		//						resources.getJSONObject(0).getJSONObject("entity"),
+		//						token);
+		//				if (serviceName.equals(service.getName()))
+		//					return service;
+		//			}
+		//			//			System.out.println(resources.toString());
+		//			//			return new CloudService(new Meta(metadata),entity)
+		//		}
+		//		catch (Throwable t) {
+		//			t.printStackTrace();
+		//		}
 
 		return null;
 	}

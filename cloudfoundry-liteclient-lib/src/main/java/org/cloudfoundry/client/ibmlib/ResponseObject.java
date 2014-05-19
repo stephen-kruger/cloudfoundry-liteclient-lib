@@ -214,7 +214,7 @@ public class ResponseObject extends JSONObject {
 		return null;
 	}
 
-	private static StringEntity getStringEntity(Map<String, Object> body) throws UnsupportedEncodingException {
+	private static StringEntity getStringEntity(Map<String, Object> body) throws UnsupportedEncodingException, JSONException {
 		return new StringEntity(JsonUtil.convertMapToJson(body).toString());
 	}
 	
