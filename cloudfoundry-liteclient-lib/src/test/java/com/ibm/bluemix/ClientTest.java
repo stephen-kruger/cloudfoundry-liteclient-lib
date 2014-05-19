@@ -106,10 +106,11 @@ public class ClientTest extends TestCase {
 		log.info("Found "+apps.size()+" apps");
 		for (CloudApplication app : apps) {
 			log.info("App 1:"+app.toString());
-			String fwk = (String) app.getStaging().getStack();//.get("model");
-			assertNotNull(app.getStaging());
-			assertNotNull(cfc.getApplicationStats(app.getName()));
-			cfc.restartApplication(app.getName());
+//			String fwk = (String) app.getStaging().getStack();//.get("model");
+//			assertNotNull(app.getStaging());
+//			assertNotNull(cfc.getApplicationStats(app.getName()));
+			assertNotNull(cfc.getApplicationInstances(app));
+			assertNotNull(cfc.getApplicationInstances(app.getName()));
 		}
 		
 		// create an app

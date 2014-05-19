@@ -25,6 +25,7 @@ import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.DefaultHttpClient;
+import org.cloudfoundry.client.lib.CloudFoundryException;
 import org.cloudfoundry.client.lib.util.JsonUtil;
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -83,21 +84,34 @@ public class ResponseObject extends JSONObject {
 	/*
 	 * This method uses the existing oauth token to authenticate the request.
 	 */
-	public static ResponseObject getResponsObject(String urlOffset, OAuth2AccessToken oauth2AccessToken) throws JSONException, IllegalStateException, IOException, URISyntaxException {
+	public static ResponseObject getResponsObject(String urlOffset, OAuth2AccessToken oauth2AccessToken) throws CloudFoundryException {
 		HttpGet request = new HttpGet();
-		request.setURI(new URL(oauth2AccessToken.getString(OAuth2AccessToken.Fields.target.name())+urlOffset).toURI());
+
+		try {
+			request.setURI(new URL(oauth2AccessToken.getString(OAuth2AccessToken.Fields.target.name())+urlOffset).toURI());
+		} 
+		catch (Throwable e) {
+			e.printStackTrace();
+			throw new CloudFoundryException(HttpStatus.SC_BAD_REQUEST, "URI Error",e.getMessage());
+		}
+
 		log.info(request.getURI().toString());
 		request.setHeader("Content-Type", "application/x-www-form-urlencoded");
 		request.setHeader("Accept", "application/json;charset=utf-8");
 		request.setHeader("Authorization", "bearer "+oauth2AccessToken.getString(OAuth2AccessToken.Fields.access_token.name()));
 		HttpClient client = new DefaultHttpClient();
-		HttpResponse response = client.execute(request);	
-		HttpEntity entity = response.getEntity();
-		if (response.getStatusLine().getStatusCode()!=HttpStatus.SC_OK) {
-			throw new ClientProtocolException(response.getStatusLine().getReasonPhrase());
+		try {
+			HttpResponse response = client.execute(request);	
+			HttpEntity entity = response.getEntity();
+			if (response.getStatusLine().getStatusCode()!=HttpStatus.SC_OK) {
+				throw new CloudFoundryException(response.getStatusLine().getStatusCode(), "Client Error",response.getStatusLine().getReasonPhrase());
+			}
+			ResponseObject ro = new ResponseObject(entity.getContent());
+			return ro;
 		}
-		ResponseObject ro = new ResponseObject(entity.getContent());
-		return ro;
+		catch (IOException ioe) {
+			throw new CloudFoundryException(HttpStatus.SC_BAD_REQUEST, "IOException",ioe.getMessage());
+		}
 	}
 
 	/*
@@ -129,20 +143,20 @@ public class ResponseObject extends JSONObject {
 	public static ResponseObject putResponsObject(String urlOffset, OAuth2AccessToken oauth2AccessToken, Map<String, String> headers, Map<String,Object> body) throws ClientProtocolException, IOException, URISyntaxException, JSONException {
 		return putResponsObject(urlOffset, oauth2AccessToken, headers, getStringEntity(body));
 	}
-	
+
 	public static ResponseObject putResponsObject(String urlOffset, OAuth2AccessToken oauth2AccessToken, Map<String, String> headers, StringEntity body) throws ClientProtocolException, IOException, URISyntaxException, JSONException {
 		HttpPut request = new HttpPut();
 		request.setURI(new URL(oauth2AccessToken.getString(OAuth2AccessToken.Fields.target.name())+urlOffset).toURI()); 
 		request.setHeader("Content-Type", "application/x-www-form-urlencoded");
 		request.setHeader("Accept", "application/json;charset=utf-8");
 		request.setHeader("Authorization", "bearer "+oauth2AccessToken.getString(OAuth2AccessToken.Fields.access_token.name()));
-		
+
 		if (headers!=null) {
 			for (String key : headers.keySet()) {
 				request.setHeader(key, headers.get(key));			
 			}
 		}
-		
+
 		request.setEntity(body);
 
 		HttpClient client = new DefaultHttpClient();
@@ -190,7 +204,7 @@ public class ResponseObject extends JSONObject {
 		return new ResponseObject(entity.getContent());
 	}
 
-	public static JSONArray getResources(String urlOffset, OAuth2AccessToken oauth2AccessToken) throws JSONException, IllegalStateException, IOException, URISyntaxException {
+	public static JSONArray getResources(String urlOffset, OAuth2AccessToken oauth2AccessToken) throws CloudFoundryException {
 		ResponseObject ro = getResponsObject(urlOffset,oauth2AccessToken);
 		JSONArray result = ro.getJSONArray("resources");
 		while (!ro.isNull("next_url")) {
@@ -217,5 +231,5 @@ public class ResponseObject extends JSONObject {
 	private static StringEntity getStringEntity(Map<String, Object> body) throws UnsupportedEncodingException, JSONException {
 		return new StringEntity(JsonUtil.convertMapToJson(body).toString());
 	}
-	
+
 }

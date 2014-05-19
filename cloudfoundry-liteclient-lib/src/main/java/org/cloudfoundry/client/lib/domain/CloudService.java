@@ -16,9 +16,6 @@
 
 package org.cloudfoundry.client.lib.domain;
 
-import java.io.IOException;
-import java.net.URISyntaxException;
-
 import org.cloudfoundry.client.ibmlib.OAuth2AccessToken;
 import org.cloudfoundry.client.ibmlib.ResponseObject;
 import org.json.JSONException;
@@ -57,7 +54,6 @@ public class CloudService extends CloudEntity {
 
 		// fill in the details
 		try {
-//			System.out.println(entity.toString(3));
 			if (entity.has("service_plan")) {
 				JSONObject servicePlanEntity = entity.getJSONObject("service_plan").getJSONObject("entity");
 				ResponseObject ro = ResponseObject.getResponsObject(servicePlanEntity.getString("service_url"), token);

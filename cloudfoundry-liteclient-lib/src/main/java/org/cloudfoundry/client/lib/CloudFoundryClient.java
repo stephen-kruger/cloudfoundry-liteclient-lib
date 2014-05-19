@@ -41,6 +41,7 @@ import java.net.URL;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -242,20 +243,7 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 					info = new CloudInfo(v1_info, v2_info);
 				}
 
-			} catch (ClientProtocolException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			} catch (IllegalStateException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			} catch (URISyntaxException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			} catch (JSONException e) {
-				// TODO Auto-generated catch block
+			} catch (CloudFoundryException e) {
 				e.printStackTrace();
 			}
 		}
@@ -347,7 +335,6 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 					CloudApplication app = new CloudApplication(token,resource.getJSONObject("entity"),resource.getJSONObject("metadata"));
 					applications.add(app);
 				}
-				//			System.out.println(appResponse.toString(3));
 				for (CloudApplication app : applications) {
 					app.setUris(findApplicationUris(app.getMeta().getGuid()));
 				}
@@ -422,7 +409,7 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 		return new ApplicationStats(instanceList);
 	}
 
-	private JSONObject getInstanceInfoForApp(UUID appId, String path) throws JSONException, IllegalStateException, IOException, URISyntaxException {
+	private JSONObject getInstanceInfoForApp(UUID appId, String path) throws CloudFoundryException {
 		String urlOffset = "/v2/apps/"+appId.toString()+"/" + path;
 		return ResponseObject.getResponsObject(urlOffset, token);
 	}
@@ -861,7 +848,6 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 			try {
 				JSONArray ja = ResponseObject.getResources(urlPath, token);
 				for (int i = 0; i < ja.length(); i++) {
-					//System.out.println(ja.toString(3));
 					JSONObject entity = ja.getJSONObject(i).getJSONObject("entity");
 					JSONObject metadata = ja.getJSONObject(i).getJSONObject("metadata");
 					services.add(new CloudService(new Meta(metadata),entity, token));
@@ -901,7 +887,6 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 		//				if (serviceName.equals(service.getName()))
 		//					return service;
 		//			}
-		//			//			System.out.println(resources.toString());
 		//			//			return new CloudService(new Meta(metadata),entity)
 		//		}
 		//		catch (Throwable t) {
@@ -930,16 +915,45 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 		//cc.unbindService(appName, serviceName);
 	}
 
-	public InstancesInfo getApplicationInstances(String appName) {
-		log.severe(NYI);
-		return null;//cc.getApplicationInstances(appName);
+	public InstancesInfo getApplicationInstances(String appName) throws CloudFoundryException {
+		CloudApplication app = getApplication(appName);
+		return getApplicationInstances(app);
 	}
 
-	public InstancesInfo getApplicationInstances(CloudApplication app) {
-		log.severe(NYI);
-		return null;//cc.getApplicationInstances(app);
+	public InstancesInfo getApplicationInstances(CloudApplication app) throws CloudFoundryException {
+		if (app.getState().equals(CloudApplication.AppState.STARTED)) {
+			return doGetApplicationInstances(app.getMeta().getGuid());
+		}
+		return null;
 	}
 
+	private InstancesInfo doGetApplicationInstances(UUID appId) throws CloudFoundryException {
+		try {
+			List<JSONObject> instanceList = new ArrayList<JSONObject>();
+			JSONObject respMap = getInstanceInfoForApp(appId, "instances");
+			List<String> keys = new ArrayList<String>(respMap.keySet());
+			for (Object instanceId : respMap.keySet()) {
+				Integer index;
+				try {
+					index = Integer.valueOf(instanceId.toString());
+				} catch (NumberFormatException e) {
+					index = -1;
+				}
+				JSONObject instanceMap = respMap.getJSONObject(instanceId.toString());
+				instanceMap.put("index", index);
+				instanceList.add(instanceMap);
+			}
+			return new InstancesInfo(instanceList);
+		} 
+		catch (CloudFoundryException e) {
+			if (e.getStatusCode()==HttpStatus.SC_BAD_REQUEST) {
+				return null;
+			} else {
+				throw e;
+			}
+
+		}
+	}
 	public CrashesInfo getCrashes(String appName) {
 		log.severe(NYI);
 		return null;//cc.getCrashes(appName);

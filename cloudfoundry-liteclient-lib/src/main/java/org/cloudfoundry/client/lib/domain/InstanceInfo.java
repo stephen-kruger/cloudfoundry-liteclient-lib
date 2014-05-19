@@ -19,22 +19,25 @@ package org.cloudfoundry.client.lib.domain;
 //import org.cloudfoundry.client.lib.util.CloudUtil;
 
 import java.util.Date;
-import java.util.Map;
+
+import org.json.JSONObject;
 
 public class InstanceInfo {
-	private final Date since;
-	private final int index;
-	private final InstanceState state;
-	private final String debugIp, instanceState;
-	private final int debugPort;
+	private Date since;
+	private int index;
+	private InstanceState state;
+	private String debugIp=null, instanceState;
+	private int debugPort=-1;
 
-	public InstanceInfo(Map<String, Object> infoMap) {
-		since = null;//new Date(CloudUtil.parse(Long.class, infoMap.get("since")) * 1000);
-		index = 0;//= CloudUtil.parse(Integer.class, infoMap.get("index"));
-		instanceState = null;//= CloudUtil.parse(String.class, infoMap.get("state"));
-		state = null;//= InstanceState.valueOfWithDefault(instanceState);
-		debugIp = null;//= CloudUtil.parse(String.class, infoMap.get("debug_ip"));
-		debugPort = 0;//= CloudUtil.parse(Integer.class, infoMap.get("debug_port"));
+	public InstanceInfo(JSONObject infoMap) {
+		since = new Date(infoMap.getLong("since") * 1000);
+		index = infoMap.getInt("index");
+		instanceState = infoMap.getString("state");
+		state = InstanceState.valueOfWithDefault(instanceState);
+		if (!infoMap.isNull("debug_ip"))
+			debugIp = infoMap.getString("debug_ip");
+		if (!infoMap.isNull("debug_port"))
+			debugPort = infoMap.getInt("debug_port");
 	}
 
 	public Date getSince() {

@@ -21,13 +21,15 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
+import org.json.JSONObject;
+
 public class InstancesInfo {
 
 	private final List<InstanceInfo> instances;
 
-	public InstancesInfo(List<Map<String, Object>> attributes) {
+	public InstancesInfo(List<JSONObject> attributes) {
 		List<InstanceInfo> instances = new ArrayList<InstanceInfo>(attributes.size());
-		for (Map<String, Object> data : attributes) {
+		for (JSONObject data : attributes) {
 			instances.add(new InstanceInfo(data));
 		}
 		this.instances = Collections.unmodifiableList(instances);
