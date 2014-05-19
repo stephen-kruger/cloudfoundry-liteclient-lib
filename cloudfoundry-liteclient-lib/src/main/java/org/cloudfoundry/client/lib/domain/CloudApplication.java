@@ -3,7 +3,6 @@ package org.cloudfoundry.client.lib.domain;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.UUID;
 
 import org.cloudfoundry.client.ibmlib.OAuth2AccessToken;
 import org.cloudfoundry.client.ibmlib.ResponseObject;
@@ -110,7 +109,7 @@ public class CloudApplication extends CloudEntity {
 					buildpackUrl = entity.getString("buildpack");
 			}
 			if (entity.has("stack")) {
-				CloudStack stack = new CloudStack(entity.getJSONObject("stack").getJSONObject("entity"),entity.getJSONObject("stack").getJSONObject("metadata"));
+				CloudStack stack = new CloudStack(entity.getJSONObject("stack").getJSONObject("metadata"),entity.getJSONObject("stack").getJSONObject("entity"));
 				setStaging(new Staging(command, buildpackUrl,stack.getName(),null));
 			}
 		} 

@@ -6,7 +6,7 @@ import org.json.JSONObject;
 public class CloudStack  extends CloudEntity {
 	private String description;
 
-	public CloudStack(JSONObject entity, JSONObject metadata) throws JSONException {
+	public CloudStack(JSONObject metadata, JSONObject entity) throws JSONException {
 		this(new Meta(metadata),entity.getString("name"),entity.getString("description"));
 	}
 	

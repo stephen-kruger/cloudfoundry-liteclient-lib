@@ -190,8 +190,9 @@ public interface CloudFoundryOperations {
 	 * Create a service.
 	 *
 	 * @param service cloud service info
+	 * @throws CloudFoundryException 
 	 */
-	void createService(CloudService service);
+	void createService(CloudService service) throws CloudFoundryException;
 
 	/**
 	 * Create a user-provided service.
@@ -426,16 +427,18 @@ public interface CloudFoundryOperations {
 	 * @return portion of the staging log content starting from the offset. It
 	 *         may contain multiple lines. Returns null if no further content is
 	 *         available.
+	 * @throws CloudFoundryException 
 	 */
-	String getStagingLogs(StartingInfo info, int offset);
+	String getStagingLogs(StartingInfo info, int offset) throws CloudFoundryException;
 
 
 	/**
 	 * Get the list of stacks available for staging applications.
 	 *
 	 * @return the list of available stacks
+	 * @throws CloudFoundryException 
 	 */
-	List<CloudStack> getStacks();
+	List<CloudStack> getStacks() throws CloudFoundryException;
 
 	/**
 	 * Get a stack by name.
@@ -509,15 +512,17 @@ public interface CloudFoundryOperations {
 	 * Delete cloud service.
 	 *
 	 * @param service name of service
+	 * @throws CloudFoundryException 
 	 */
-	void deleteService(String service);
+	void deleteService(String service) throws CloudFoundryException;
 
 	/**
 	 * Get all service offerings.
 	 *
 	 * @return list of service offerings
+	 * @throws CloudFoundryException 
 	 */
-	List<CloudServiceOffering> getServiceOfferings();
+	List<CloudServiceOffering> getServiceOfferings() throws CloudFoundryException;
 
 	/**
 	 * Associate (provision) a service with an application.

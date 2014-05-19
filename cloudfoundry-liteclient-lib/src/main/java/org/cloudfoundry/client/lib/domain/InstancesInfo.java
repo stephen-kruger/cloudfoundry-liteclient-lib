@@ -19,7 +19,6 @@ package org.cloudfoundry.client.lib.domain;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 
 import org.json.JSONObject;
 

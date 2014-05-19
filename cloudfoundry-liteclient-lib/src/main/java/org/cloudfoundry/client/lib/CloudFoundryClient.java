@@ -34,7 +34,6 @@ package org.cloudfoundry.client.lib;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
@@ -42,16 +41,23 @@ import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 import java.util.UUID;
 import java.util.logging.Logger;
 
 import org.apache.http.HttpStatus;
 import org.apache.http.client.ClientProtocolException;
-import org.cloudfoundry.client.lib.CloudFoundryOperations;
-import org.cloudfoundry.client.lib.StartingInfo;
+//import org.cloudfoundry.client.lib.rest.CloudControllerClient;
+//import org.cloudfoundry.client.lib.rest.CloudControllerClientFactory;
+import org.cloudfoundry.client.ibmlib.OAuth2AccessToken;
+import org.cloudfoundry.client.ibmlib.ResponseObject;
+//import org.cloudfoundry.client.ibmlib.util.Assert;
+//import org.cloudfoundry.client.ibmlib.ResponseErrorHandler;
+import org.cloudfoundry.client.ibmlib.util.Assert;
 //import org.cloudfoundry.client.lib.archive.ApplicationArchive;
 import org.cloudfoundry.client.lib.domain.ApplicationStats;
 import org.cloudfoundry.client.lib.domain.CloudApplication;
@@ -63,21 +69,16 @@ import org.cloudfoundry.client.lib.domain.CloudOrganization;
 import org.cloudfoundry.client.lib.domain.CloudRoute;
 import org.cloudfoundry.client.lib.domain.CloudService;
 import org.cloudfoundry.client.lib.domain.CloudServiceOffering;
+import org.cloudfoundry.client.lib.domain.CloudServicePlan;
 import org.cloudfoundry.client.lib.domain.CloudSpace;
 import org.cloudfoundry.client.lib.domain.CloudStack;
+import org.cloudfoundry.client.lib.domain.CrashInfo;
 import org.cloudfoundry.client.lib.domain.CrashesInfo;
 import org.cloudfoundry.client.lib.domain.InstanceStats;
 import org.cloudfoundry.client.lib.domain.InstancesInfo;
 import org.cloudfoundry.client.lib.domain.Staging;
 import org.cloudfoundry.client.lib.util.CloudEntityResourceMapper;
 import org.cloudfoundry.client.lib.util.JsonUtil;
-//import org.cloudfoundry.client.lib.rest.CloudControllerClient;
-//import org.cloudfoundry.client.lib.rest.CloudControllerClientFactory;
-import org.cloudfoundry.client.ibmlib.OAuth2AccessToken;
-import org.cloudfoundry.client.ibmlib.ResponseObject;
-//import org.cloudfoundry.client.ibmlib.util.Assert;
-//import org.cloudfoundry.client.ibmlib.ResponseErrorHandler;
-import org.cloudfoundry.client.ibmlib.util.Assert;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -292,23 +293,25 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 
 
 	public void register(String email, String password) {
-		//cc.register(email, password);
-		log.severe(NYI);
+		throw new UnsupportedOperationException("Feature is not yet implemented.");
 	}
 
 	public void updatePassword(String newPassword) {
-		//cc.updatePassword(newPassword);
-		log.severe(NYI);
+		updatePassword(credentials, newPassword);
 	}
 
 	public void updatePassword(CloudCredentials credentials, String newPassword) {
-		//cc.updatePassword(credentials, newPassword);
-		log.severe(NYI);
+		ResponseObject.changePassword(token, credentials.getPassword(), newPassword);
+		CloudCredentials newCloudCredentials = new CloudCredentials(credentials.getEmail(), newPassword);
+		if (this.credentials.getProxyUser() != null) {
+			this.credentials = newCloudCredentials.proxyForUser(this.credentials.getProxyUser());
+		} else {
+			this.credentials = newCloudCredentials;
+		}
 	}
 
 	public void unregister() {
-		//cc.unregister();
-		log.severe(NYI);
+		throw new UnsupportedOperationException("Feature is not yet implemented.");
 	}
 
 	public OAuth2AccessToken login() throws ClientProtocolException, URISyntaxException, IOException, JSONException {
@@ -616,9 +619,48 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 		}
 	}
 
-	public void createService(CloudService service) {
-		log.severe(NYI);
-		//cc.createService(service);
+	public void createService(CloudService service) throws CloudFoundryException {
+		assertSpaceProvided("create service");
+		Assert.notNull(service, "Service must not be null");
+		Assert.notNull(service.getName(), "Service name must not be null");
+		Assert.notNull(service.getLabel(), "Service label must not be null");
+		Assert.notNull(service.getPlan(), "Service plan must not be null");
+
+		CloudServicePlan cloudServicePlan = findPlanForService(service);
+
+		HashMap<String, Object> serviceRequest = new HashMap<String, Object>();
+		serviceRequest.put("space_guid", sessionSpace.getMeta().getGuid());
+		serviceRequest.put("name", service.getName());
+		serviceRequest.put("service_plan_guid", cloudServicePlan.getMeta().getGuid());
+		postForObject("/v2/service_instances", serviceRequest);
+	}
+
+	private List<CloudServiceOffering> getServiceOfferings(String label) throws CloudFoundryException {
+		Assert.notNull(label, "Service label must not be null");
+		JSONArray resourceList = ResponseObject.getResources("/v2/services?inline-relations-depth=1", token);
+		List<CloudServiceOffering> results = new ArrayList<CloudServiceOffering>();
+		for (int i = 0; i < resourceList.length();i++) {
+			JSONObject resource = resourceList.getJSONObject(i);
+			CloudServiceOffering cloudServiceOffering = new CloudServiceOffering(resource.getJSONObject("metadata"),resource.getJSONObject("entity"));
+			if (cloudServiceOffering.getLabel() != null && label.equals(cloudServiceOffering.getLabel())) {
+				results.add(cloudServiceOffering);
+			}
+		}
+		return results;
+	}
+
+	private CloudServicePlan findPlanForService(CloudService service) throws CloudFoundryException {
+		List<CloudServiceOffering> offerings = getServiceOfferings(service.getLabel());
+		for (CloudServiceOffering offering : offerings) {
+			if (service.getVersion() == null || service.getVersion().equals(offering.getVersion())) {
+				for (CloudServicePlan plan : offering.getCloudServicePlans()) {
+					if (service.getPlan() != null && service.getPlan().equals(plan.getName())) {
+						return plan;
+					}
+				}
+			}
+		}
+		throw new IllegalArgumentException("Service plan " + service.getPlan() + " not found");
 	}
 
 	public void createUserProvidedService(CloudService service, Map<String, Object> credentials) {
@@ -687,7 +729,7 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 	}
 
 	public void debugApplication(String appName, DebugMode mode) {
-		log.severe(NYI);
+		throw new UnsupportedOperationException("Feature is not yet implemented.");
 	}
 
 	public void stopApplication(String appName) throws CloudFoundryException {
@@ -739,7 +781,7 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 			doDeleteService(cloudService);
 		}
 	}
-
+	
 	private void doDeleteService(CloudService cloudService) throws CloudFoundryException {
 		List<UUID> appIds = getAppsBoundToService(cloudService);
 		if (appIds.size() > 0) {
@@ -889,7 +931,7 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 		removeUris(removeUris, app.getMeta().getGuid());
 		addUris(newUris, app.getMeta().getGuid());
 	}
-	
+
 	private void removeUris(List<String> uris, UUID appGuid) throws CloudFoundryException {
 		Map<String, UUID> domains = getDomainGuids();
 		for (String uri : uris) {
@@ -899,7 +941,7 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 			unbindRoute(uriInfo.get("host"), domainGuid, appGuid);
 		}
 	}
-	
+
 	private void unbindRoute(String host, UUID domainGuid, UUID appGuid) throws CloudFoundryException {
 		UUID routeGuid = getRouteGuid(host, domainGuid);
 		if (routeGuid != null) {
@@ -909,8 +951,10 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 	}
 
 	public void updateApplicationEnv(String appName, Map<String, String> env) {
-		log.severe(NYI);
-		//cc.updateApplicationEnv(appName, env);
+		UUID appId = getAppId(appName);
+		HashMap<String, Object> appRequest = new HashMap<String, Object>();
+		appRequest.put("environment_json", env);
+		putForObject("/v2/apps/"+appId.toString(), appRequest);
 	}
 
 	public void updateApplicationEnv(String appName, List<String> env) {
@@ -937,25 +981,168 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 	//    }
 
 	public Map<String, String> getCrashLogs(String appName) {
-		log.severe(NYI);
-		return null;//cc.getCrashLogs(appName);
+		String filePath = "";// TODO - where am I supposed to get this value?
+		int index = 0;// TODO - where am I supposed to get this value?
+		String urlPath = getFileUrlPath(index,filePath);
+		CrashesInfo crashes = getCrashes(appName);
+		if (crashes.getCrashes().isEmpty()) {
+			return Collections.emptyMap();
+		}
+		TreeMap<Date, String> crashInstances = new TreeMap<Date, String>();
+		for (CrashInfo crash : crashes.getCrashes()) {
+			crashInstances.put(crash.getSince(), crash.getInstance());
+		}
+		String instance = crashInstances.get(crashInstances.lastKey());
+		return doGetLogs(urlPath, appName, instance);
 	}
 
-	public String getStagingLogs(StartingInfo info, int offset) {
-		log.severe(NYI);
-		return null;//cc.getStagingLogs(info, offset);
+	protected Map<String, String> doGetLogs(String urlPath, String appName, String instance) {
+		Object appId = getFileAppId(appName);
+		String logFiles = doGetFile(urlPath, appId, instance, "logs", -1, -1);
+		String[] lines = logFiles.split("\n");
+		List<String> fileNames = new ArrayList<String>();
+		for (String line : lines) {
+			String[] parts = line.split("\\s");
+			if (parts.length > 0 && parts[0] != null) {
+				fileNames.add(parts[0]);
+			}
+		}
+		Map<String, String> logs = new HashMap<String, String>(fileNames.size());
+		for(String fileName : fileNames) {
+			String logFile = "logs" + "/" + fileName;
+			logs.put(logFile, doGetFile(urlPath, appId, instance, logFile, -1, -1));
+		}
+		return logs;
+	}
+	
+	public String getStagingLogs(StartingInfo info, int offset) throws CloudFoundryException {
+		String stagingFile = info.getStagingFile();
+		if (stagingFile != null) {
+			try {
+				HashMap<String, Object> logsRequest = new HashMap<String, Object>();
+				logsRequest.put("offset", offset);
+				String ro = ResponseObject.getResponsObjectAsString(stagingFile + "&tail&tail_offset="+offset, token);
+			} catch (CloudFoundryException e) {
+				if (e.getStatusCode()==HttpStatus.SC_NOT_FOUND) {
+					// Content is no longer available
+					return null;
+				} else {
+					throw e;
+				}
+			} 
+			catch (Throwable e) {
+				// Likely read timeout, the directory server won't serve 
+				// the content again
+				log.severe("Caught exception while fetching staging logs. Aborting. Caught:" + e.getMessage());
+			} 
+		}
+		return null;
+	}
+
+	protected String getFileUrlPath(int instanceIndex, String filePath) {
+		return "/v2/apps/{appId}/instances/"+instanceIndex+"/files/"+filePath;
+	}
+
+	protected String doGetFile(String urlPath, Object app, int instanceIndex, String filePath, int startPosition, int endPosition) {
+		return doGetFile(urlPath, app, String.valueOf(instanceIndex), filePath, startPosition, endPosition);
+	}
+
+	protected String doGetFile(String urlPath, Object app, String instance, String filePath, int startPosition, int endPosition) {
+		Assert.isTrue(startPosition >= -1, "Invalid start position value: " + startPosition);
+		Assert.isTrue(endPosition >= -1, "Invalid end position value: " + endPosition);
+		Assert.isTrue(startPosition < 0 || endPosition < 0 || endPosition >= startPosition,
+				"The end position (" + endPosition + ") can't be less than the start position (" + startPosition + ")");
+
+		int start, end;
+		if (startPosition == -1 && endPosition == -1) {
+			start = 0;
+			end = -1;
+		} else {
+			start = startPosition;
+			end = endPosition;
+		}
+
+		final String range =
+				"bytes=" + (start == -1 ? "" : start) + "-" + (end == -1 ? "" : end);
+
+		return doGetFileByRange(urlPath, app, instance, filePath, start, end, range);
+	}
+
+	private String doGetFileByRange(String urlPath, Object app, String instance, String filePath, int start, int end, String range) {
+
+		//		boolean supportsRanges;
+		//		try {
+		//			supportsRanges = getRestTemplate().execute(getUrl(urlPath), HttpMethod.HEAD, new RequestCallback() {
+		//				public void doWithRequest(ClientHttpRequest request) throws IOException {
+		//					request.getHeaders().set("Range", "bytes=0-");
+		//				}
+		//			},
+		//			new ResponseExtractor<Boolean>() {
+		//				public Boolean extractData(ClientHttpResponse response) throws IOException {
+		//					return response.getStatusCode().equals(HttpStatus.PARTIAL_CONTENT);
+		//				}
+		//			},
+		//			app, instance, filePath);
+		//		} catch (CloudFoundryException e) {
+		//			if (e.getStatusCode().equals(HttpStatus.REQUESTED_RANGE_NOT_SATISFIABLE)) {
+		//				// must be a 0 byte file
+		//				return "";
+		//			} else {
+		//				throw e;
+		//			}
+		//		}
+		//		HttpHeaders headers = new HttpHeaders();
+		//		if (supportsRanges) {
+		//			headers.set("Range", range);
+		//		}
+		//		HttpEntity<Object> requestEntity = new HttpEntity<Object>(headers);
+		//		ResponseEntity<String> responseEntity = getRestTemplate().exchange(getUrl(urlPath),
+		//				HttpMethod.GET, requestEntity, String.class, app, instance, filePath);
+		//		String response = responseEntity.getBody();
+		//		boolean partialFile = false;
+		//		if (responseEntity.getStatusCode().equals(HttpStatus.PARTIAL_CONTENT)) {
+		//			partialFile = true;
+		//		}
+		//		if (!partialFile && response != null) {
+		//			if (start == -1) {
+		//				return response.substring(response.length() - end);
+		//			} else {
+		//				if (start >= response.length()) {
+		//					if (response.length() == 0) {
+		//						return "";
+		//					}
+		//					throw new CloudFoundryException(HttpStatus.REQUESTED_RANGE_NOT_SATISFIABLE,
+		//							"The starting position " + start + " is past the end of the file content.");
+		//				}
+		//				if (end != -1) {
+		//					if (end >= response.length()) {
+		//						end = response.length() - 1;
+		//					}
+		//					return response.substring(start, end + 1);
+		//				} else {
+		//					return response.substring(start);
+		//				}
+		//			}
+		//		}
+		//		return response;
+		// TODO - implement this method
+		return null;
+	}
+
+	protected Object getFileAppId(String appName) {
+		return getAppId(appName);
 	}
 
 	public String getFile(String appName, int instanceIndex, String filePath) {
-		log.severe(NYI);
-		return null;//cc.getFile(appName, instanceIndex, filePath, 0, -1);
+		return getFile(appName, instanceIndex, filePath, 0, -1);
 	}
 
 	public String getFile(String appName, int instanceIndex, String filePath, int startPosition) {
 		Assert.isTrue(startPosition >= 0,
 				startPosition + " is not a valid value for start position, it should be 0 or greater.");
-		log.severe(NYI);
-		return null;//cc.getFile(appName, instanceIndex, filePath, startPosition, -1);
+		String urlPath = getFileUrlPath(instanceIndex,filePath);
+		Object appId = getFileAppId(appName);
+		return doGetFile(urlPath, appId, instanceIndex, filePath, startPosition, -1);
 	}
 
 	public String getFile(String appName, int instanceIndex, String filePath, int startPosition, int endPosition) {
@@ -964,14 +1151,13 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 		Assert.isTrue(endPosition > startPosition,
 				endPosition + " is not a valid value for end position, it should be greater than startPosition " +
 						"which is " + startPosition + ".");
-		log.severe(NYI);
-		return null;//cc.getFile(appName, instanceIndex, filePath, startPosition, endPosition - 1);
+		Object appId = getFileAppId(appName);
+		return doGetFile(appName, appId, instanceIndex, filePath, startPosition, endPosition - 1);
 	}
 
 	public String getFileTail(String appName, int instanceIndex, String filePath, int length) {
 		Assert.isTrue(length > 0, length + " is not a valid value for length, it should be 1 or greater.");
-		log.severe(NYI);
-		return null;//cc.getFile(appName, instanceIndex, filePath, -1, length);
+		return getFile(appName, instanceIndex, filePath, -1, length);
 	}
 
 	// list services, un/provision services, modify instance
@@ -1037,13 +1223,22 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 		return null;
 	}
 
-	public void deleteService(String serviceName) {
-		log.severe(NYI);
+	public void deleteService(String serviceName) throws CloudFoundryException {
+		CloudService cloudService = getService(serviceName);
+		doDeleteService(cloudService);
 	}
-
-	public List<CloudServiceOffering> getServiceOfferings() {
-		log.severe(NYI);
-		return null;//cc.getServiceOfferings();
+	
+	public List<CloudServiceOffering> getServiceOfferings() throws CloudFoundryException {
+		String urlOffset = "/v2/services?inline-relations-depth=1";
+		JSONArray resourceList = ResponseObject.getResources(urlOffset, token);
+		List<CloudServiceOffering> serviceOfferings = new ArrayList<CloudServiceOffering>();
+		
+		for (int i = 0; i < resourceList.length(); i++) {
+			JSONObject resource = resourceList.getJSONObject(i);
+			CloudServiceOffering serviceOffering = new CloudServiceOffering(resource.getJSONObject("metadata"), resource.getJSONObject("entity"));
+			serviceOfferings.add(serviceOffering);
+		}
+		return serviceOfferings;
 	}
 
 	public void bindService(String appName, String serviceName) throws CloudFoundryException {
@@ -1057,7 +1252,7 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 		UUID appId = getAppId(appName);
 		doUnbindService(appId, cloudService.getMeta().getGuid());
 	}
-	
+
 	public InstancesInfo getApplicationInstances(String appName) throws CloudFoundryException {
 		CloudApplication app = getApplication(appName);
 		return getApplicationInstances(app);
@@ -1074,7 +1269,7 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 		try {
 			List<JSONObject> instanceList = new ArrayList<JSONObject>();
 			JSONObject respMap = getInstanceInfoForApp(appId, "instances");
-			List<String> keys = new ArrayList<String>(respMap.keySet());
+//			List<String> keys = new ArrayList<String>(respMap.keySet());
 			for (Object instanceId : respMap.keySet()) {
 				Integer index;
 				try {
@@ -1102,9 +1297,15 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 		return null;//cc.getCrashes(appName);
 	}
 
-	public List<CloudStack> getStacks() {
-		log.severe(NYI);
-		return null;//cc.getStacks();
+	public List<CloudStack> getStacks() throws CloudFoundryException {
+		String urlOffset = "/v2/stacks";
+		JSONArray resourceList = ResponseObject.getResources(urlOffset, token);
+		List<CloudStack> stacks = new ArrayList<CloudStack>();
+		for (int i = 0; i < resourceList.length(); i++) {
+			JSONObject resource = resourceList.getJSONObject(i);
+			stacks.add(new CloudStack(resource.getJSONObject("metadata"),resource.getJSONObject("entity")));
+		}
+		return stacks;
 	}
 
 	public CloudStack getStack(String name) {
@@ -1201,7 +1402,7 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 		}
 		doDeleteDomain(domainGuid);
 	}
-	
+
 	private void doDeleteDomain(UUID domainGuid) throws CloudFoundryException {
 		Map<String, Object> urlVars = new HashMap<String, Object>();
 		String urlPath = "/v2/private_domains/"+domainGuid.toString();
@@ -1267,7 +1468,7 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 		}
 		doDeleteRoute(routeGuid);
 	}
-	
+
 	private void doDeleteRoute(UUID routeGuid) throws CloudFoundryException {
 		String urlPath = "/v2/routes/"+routeGuid.toString();
 		deleteForObject(urlPath);

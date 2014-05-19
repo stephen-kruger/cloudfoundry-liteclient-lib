@@ -114,7 +114,6 @@ public class JsonUtil {
 //		}
 //	}
 	
-	@SuppressWarnings("rawtypes")
 	public static JSONObject convertMapToJson(Map<String, Object> map) throws JSONException {
 		JSONObject res = new JSONObject();
 		for (String key : map.keySet()) {

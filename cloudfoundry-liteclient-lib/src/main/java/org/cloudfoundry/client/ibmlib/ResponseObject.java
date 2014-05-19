@@ -143,6 +143,35 @@ public class ResponseObject extends JSONObject {
 		}
 	}
 
+	public static String getResponsObjectAsString(String urlOffset, OAuth2AccessToken oauth2AccessToken) throws CloudFoundryException {
+		HttpGet request = new HttpGet();
+
+		try {
+			request.setURI(new URL(oauth2AccessToken.getString(OAuth2AccessToken.Fields.target.name())+urlOffset).toURI());
+		} 
+		catch (Throwable e) {
+			e.printStackTrace();
+			throw new CloudFoundryException(HttpStatus.SC_BAD_REQUEST, "URI Error",e.getMessage());
+		}
+
+		log.info(request.getURI().toString());
+		request.setHeader("Content-Type", "application/x-www-form-urlencoded");
+		request.setHeader("Accept", "application/json;charset=utf-8");
+		request.setHeader("Authorization", "bearer "+oauth2AccessToken.getString(OAuth2AccessToken.Fields.access_token.name()));
+		HttpClient client = new DefaultHttpClient();
+		try {
+			HttpResponse response = client.execute(request);	
+			HttpEntity entity = response.getEntity();
+			if (response.getStatusLine().getStatusCode()!=HttpStatus.SC_OK) {
+				throw new CloudFoundryException(response.getStatusLine().getStatusCode(), "Client Error",response.getStatusLine().getReasonPhrase());
+			}
+			return streamToString(entity.getContent());
+		}
+		catch (IOException ioe) {
+			throw new CloudFoundryException(HttpStatus.SC_BAD_REQUEST, "IOException",ioe.getMessage());
+		}
+	}
+
 	/*
 	 * This method has no authentication, and is used for the intitial login request. The uri is the full uri, not just the offset.
 	 */
@@ -274,6 +303,23 @@ public class ResponseObject extends JSONObject {
 			e.printStackTrace();
 			return null;
 		}
+	}
+
+	public static void changePassword(OAuth2AccessToken token, String oldPassword, String newPassword) {
+		// TODO - not my high priority right now
+//		HttpHeaders headers = new HttpHeaders();
+//		headers.add(AUTHORIZATION_HEADER_KEY, token.getTokenType() + " " + token.getValue());
+//		HttpEntity info = new HttpEntity(headers);
+//		ResponseEntity<String> response = restTemplate.exchange(authorizationUrl + "/userinfo", HttpMethod.GET, info, String.class);
+//		Map<String, Object> responseMap = JsonUtil.convertJsonToMap(response.getBody());
+//		String userId = (String) responseMap.get("user_id");
+//		Map<String, Object> body = new HashMap<String, Object>();
+//		body.put("schemas", new String[] {"urn:scim:schemas:core:1.0"});
+//		body.put("password", newPassword);
+//		body.put("oldPassword", oldPassword);
+//		HttpEntity<Map> httpEntity = new HttpEntity<Map>(body, headers);
+//		restTemplate.put(authorizationUrl + "/User/{id}/password", httpEntity, userId);
+		
 	}
 
 }

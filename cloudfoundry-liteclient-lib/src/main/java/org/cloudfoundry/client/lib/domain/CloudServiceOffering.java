@@ -19,6 +19,8 @@ package org.cloudfoundry.client.lib.domain;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.json.JSONObject;
+
 public class CloudServiceOffering extends CloudEntity {
 
 	//Note name is used for label
@@ -35,6 +37,21 @@ public class CloudServiceOffering extends CloudEntity {
 	
 	private List<CloudServicePlan> cloudServicePlans = new ArrayList<CloudServicePlan>();
 
+	public CloudServiceOffering(JSONObject meta, JSONObject entity) {
+		this(new Meta(meta),entity.getString("name"));
+		this.provider = entity.getString("provider");
+		this.version = entity.getString("version");
+		this.description = entity.getString("description");
+		this.active = entity.getBoolean("active");
+		this.bindable = entity.getBoolean("bindable");
+		this.url = entity.getString("url");
+		this.infoUrl = entity.getString("infoUrl");
+		this.uniqueId = entity.getString("uniqueId");
+		this.extra = entity.getString("extra");
+		this.docUrl = entity.getString("docUrl");
+		
+	}
+	
 	public CloudServiceOffering(Meta meta, String name) {
 		super(meta, name);
 	}
