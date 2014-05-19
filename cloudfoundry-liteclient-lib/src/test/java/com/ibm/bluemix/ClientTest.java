@@ -62,15 +62,15 @@ public class ClientTest extends TestCase {
 	}
 	
 	public void testDomains() throws CloudFoundryException {
-//		List<CloudDomain> domains = cfc.getDomains();
-//		assertTrue("No domains found",domains.size()>0);
-//		log.info("Found "+domains.size()+" domains");
-//		for (CloudDomain domain : domains) {
-//			log.info("Domain 1:"+domain.toString());
-//		}
+		List<CloudDomain> domains = cfc.getDomains();
+		assertTrue("No domains found",domains.size()>0);
+		log.info("Found "+domains.size()+" domains");
+		for (CloudDomain domain : domains) {
+			log.info("Domain 1:"+domain.toString());
+		}
 		
 		// test create
-		cfc.addDomain("xxx");
+//		cfc.addDomain("xxx");
 	}
 	
 	public void testOrganisations() {
@@ -86,7 +86,7 @@ public class ClientTest extends TestCase {
 		
 	}
 	
-	public void testCloudInfo() throws JSONException, IllegalStateException, IOException, URISyntaxException {
+	public void testCloudInfo() throws JSONException, IllegalStateException, IOException, URISyntaxException, CloudFoundryException {
 		log.info("==========================");
 		CloudInfo cloudInfo = cfc.getCloudInfo();
 		Limits limits = cloudInfo.getLimits();

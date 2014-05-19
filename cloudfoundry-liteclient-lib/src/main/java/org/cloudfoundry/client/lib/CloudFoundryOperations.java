@@ -72,8 +72,9 @@ public interface CloudFoundryOperations {
 	 * Get CloudInfo for the current cloud.
 	 *
 	 * @return CloudInfo object containing the cloud info
+	 * @throws CloudFoundryException 
 	 */
-	CloudInfo getCloudInfo();
+	CloudInfo getCloudInfo() throws CloudFoundryException;
 
 	/**
 	 * Get list of CloudSpaces for the current cloud.
@@ -126,8 +127,9 @@ public interface CloudFoundryOperations {
 	 * @throws IOException 
 	 * @throws URISyntaxException 
 	 * @throws ClientProtocolException 
+	 * @throws CloudFoundryException 
 	 */
-	OAuth2AccessToken login() throws ClientProtocolException, URISyntaxException, IOException, JSONException;
+	OAuth2AccessToken login() throws CloudFoundryException;
 
 	/**
 	 * Logout closing the current session.
@@ -138,8 +140,9 @@ public interface CloudFoundryOperations {
 	 * Get all cloud applications.
 	 *
 	 * @return list of cloud applications
+	 * @throws CloudFoundryException 
 	 */
-	List<CloudApplication> getApplications();
+	List<CloudApplication> getApplications() throws CloudFoundryException;
 
 	/**
 	 * Get cloud application with the specified name.
@@ -305,24 +308,27 @@ public interface CloudFoundryOperations {
 	 *
 	 * @param appName name of application
 	 * @param disk new disk setting in MB
+	 * @throws CloudFoundryException 
 	 */
-	void updateApplicationDiskQuota(String appName, int disk);
+	void updateApplicationDiskQuota(String appName, int disk) throws CloudFoundryException;
 
 	/**
 	 * Update application memory.
 	 *
 	 * @param appName name of application
 	 * @param memory new memory setting in MB
+	 * @throws CloudFoundryException 
 	 */
-	void updateApplicationMemory(String appName, int memory);
+	void updateApplicationMemory(String appName, int memory) throws CloudFoundryException;
 
 	/**
 	 * Update application instances.
 	 *
 	 * @param appName name of application
 	 * @param instances number of instances to use
+	 * @throws CloudFoundryException 
 	 */
-	void updateApplicationInstances(String appName, int instances);
+	void updateApplicationInstances(String appName, int instances) throws CloudFoundryException;
 
 	/**
 	 * Update application services.
@@ -357,16 +363,18 @@ public interface CloudFoundryOperations {
 	 *
 	 * @param appName name of application
 	 * @param env map of environment settings
+	 * @throws CloudFoundryException 
 	 */
-	void updateApplicationEnv(String appName, Map<String, String> env);
+	void updateApplicationEnv(String appName, Map<String, String> env) throws CloudFoundryException;
 
 	/**
 	 * Update application env using a list of strings each with one environment setting.
 	 *
 	 * @param appName name of application
 	 * @param env list of environment settings
+	 * @throws CloudFoundryException 
 	 */
-	void updateApplicationEnv(String appName, List<String> env);
+	void updateApplicationEnv(String appName, List<String> env) throws CloudFoundryException;
 
 
 	/**
@@ -412,8 +420,9 @@ public interface CloudFoundryOperations {
 	 * @param appName name of the application
 	 * @return a Map containing the logs. The logs will be returned with the path to the log file used as the key and
 	 * the full content of the log file will be returned as a String value for the corresponding key.
+	 * @throws CloudFoundryException 
 	 */
-	Map<String, String> getCrashLogs(String appName);
+	Map<String, String> getCrashLogs(String appName) throws CloudFoundryException;
 	
 	/**
 	 * Get the staging log while an application is starting. A null
@@ -457,8 +466,9 @@ public interface CloudFoundryOperations {
 	 * @param instanceIndex instance index
 	 * @param filePath path to the file
 	 * @return the contents of the file
+	 * @throws CloudFoundryException 
 	 */
-	String getFile(String appName, int instanceIndex, String filePath);
+	String getFile(String appName, int instanceIndex, String filePath) throws CloudFoundryException;
 
 	/**
 	 * Get a the content, starting at a specific position, of a file from the deployed application.
@@ -468,8 +478,9 @@ public interface CloudFoundryOperations {
 	 * @param filePath path to the file
 	 * @param startPosition the starting position of the file contents (inclusive)
 	 * @return the contents of the file
+	 * @throws CloudFoundryException 
 	 */
-	String getFile(String appName, int instanceIndex, String filePath, int startPosition);
+	String getFile(String appName, int instanceIndex, String filePath, int startPosition) throws CloudFoundryException;
 
 	/**
 	 * Get a range of content of a file from the deployed application. The range begins at the specified startPosition
@@ -481,8 +492,9 @@ public interface CloudFoundryOperations {
 	 * @param startPosition the starting position of the file contents (inclusive)
 	 * @param endPosition the ending position of the file contents (exclusive)
 	 * @return the contents of the file
+	 * @throws CloudFoundryException 
 	 */
-	String getFile(String appName, int instanceIndex, String filePath, int startPosition, int endPosition);
+	String getFile(String appName, int instanceIndex, String filePath, int startPosition, int endPosition) throws CloudFoundryException;
 
 	/**
 	 * Get a the last bytes, with length as specified, of content of a file from the deployed application.
@@ -492,8 +504,9 @@ public interface CloudFoundryOperations {
 	 * @param filePath path to the file
 	 * @param length the length of the file contents to retrieve
 	 * @return the contents of the file
+	 * @throws CloudFoundryException 
 	 */
-	String getFileTail(String appName, int instanceIndex, String filePath, int length);
+	String getFileTail(String appName, int instanceIndex, String filePath, int length) throws CloudFoundryException;
 
 	/**
 	 * Get list of cloud services.
@@ -573,8 +586,9 @@ public interface CloudFoundryOperations {
 	 *
 	 * @param appName the current name
 	 * @param newName the new name
+	 * @throws CloudFoundryException 
 	 */
-	void rename(String appName, String newName);
+	void rename(String appName, String newName) throws CloudFoundryException;
 
 	/**
 	 * Get list of all domain registered for the current organization.

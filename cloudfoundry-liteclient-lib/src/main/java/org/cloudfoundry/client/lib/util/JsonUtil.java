@@ -21,8 +21,10 @@ package org.cloudfoundry.client.lib.util;
 //import org.codehaus.jackson.type.TypeReference;
 //import org.springframework.http.MediaType;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
 
@@ -62,9 +64,7 @@ public class JsonUtil {
 	public static Map<String, Object> convertJsonToMap(JSONObject json) throws JSONException {
 		Map<String, Object> retMap = new HashMap<String, Object>();
 		JSONObject jo = new JSONObject(json.toString());
-		Iterator keys = jo.keys();
-		while (keys.hasNext()) {
-			String key = keys.next().toString();
+		for (String key : JsonUtil.keys(jo)) {
 			if (jo.get(key.toString()) instanceof JSONObject) {
 				retMap.put(key.toString(), convertJsonToMap(jo.getJSONObject(key.toString())));
 			}
@@ -120,6 +120,16 @@ public class JsonUtil {
 			res.put(key, map.get(key));
 		}
 		return res;
+	}
+	
+	public static List<String> keys(JSONObject j) {
+		List<String> list = new ArrayList<String>();
+		@SuppressWarnings("unchecked")
+		Iterator<Object> i = j.keys();
+		while (i.hasNext()) {
+			list.add(i.next().toString());
+		}
+		return list;
 	}
 
 }

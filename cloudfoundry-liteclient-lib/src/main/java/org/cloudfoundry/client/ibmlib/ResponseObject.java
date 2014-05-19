@@ -3,14 +3,17 @@ package org.cloudfoundry.client.ibmlib;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
+import java.lang.reflect.Array;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
 
@@ -175,7 +178,7 @@ public class ResponseObject extends JSONObject {
 	/*
 	 * This method has no authentication, and is used for the intitial login request. The uri is the full uri, not just the offset.
 	 */
-	public static JSONObject postResponsObject(URI uri, Map<String, String> headers, StringEntity body) throws ClientProtocolException, IOException, IllegalStateException, JSONException {
+	public static JSONObject postResponsObject(URI uri, Map<String, String> headers, StringEntity body) throws CloudFoundryException {
 		HttpPost request = new HttpPost();
 		request.setURI(uri); 
 		request.setHeader("Content-Type", "application/x-www-form-urlencoded");
@@ -186,12 +189,23 @@ public class ResponseObject extends JSONObject {
 		request.setEntity(body);
 
 		HttpClient client = new DefaultHttpClient();
-		HttpResponse response = client.execute(request);	
-		HttpEntity entity = response.getEntity();
-		if (response.getStatusLine().getStatusCode()!=HttpStatus.SC_OK) {
-			throw new ClientProtocolException(response.getStatusLine().getReasonPhrase());
-		}
-		return new ResponseObject(entity.getContent());
+		HttpResponse response;
+		try {
+			response = client.execute(request);
+			HttpEntity entity = response.getEntity();
+			if (response.getStatusLine().getStatusCode()!=HttpStatus.SC_OK) {
+				throw new CloudFoundryException(response.getStatusLine().getStatusCode(),response.getStatusLine().getReasonPhrase());
+			}
+			return new ResponseObject(entity.getContent());
+		} 
+		catch (ClientProtocolException e) {
+			e.printStackTrace();
+			throw new CloudFoundryException(HttpStatus.SC_BAD_REQUEST,e.getMessage());
+		} 
+		catch (IOException e) {
+			e.printStackTrace();
+			throw new CloudFoundryException(HttpStatus.SC_BAD_REQUEST,e.getMessage());
+		}	
 	}
 
 	public static ResponseObject postResponsObject(String urlOffset, OAuth2AccessToken oauth2AccessToken, Map<String, String> headers, Map<String,Object> body) throws CloudFoundryException {
@@ -271,17 +285,33 @@ public class ResponseObject extends JSONObject {
 		}
 	}
 
-	public static JSONArray getResources(String urlOffset, OAuth2AccessToken oauth2AccessToken) throws CloudFoundryException {
+	public static List<JSONObject> getResources(String urlOffset, OAuth2AccessToken oauth2AccessToken) throws CloudFoundryException {
+		// add the first page
 		ResponseObject ro = getResponsObject(urlOffset,oauth2AccessToken);
-		JSONArray result = ro.getJSONArray("resources");
+		JSONArray thisResult = ro.getJSONArray("resources");
+		List<JSONObject> result = new ArrayList<JSONObject>();
+		for (int i = 0; i < thisResult.length();i++)
+			result.add(thisResult.getJSONObject(i));
+		
+		// now scroll through subsequent pages
 		while (!ro.isNull("next_url")) {
-			JSONArray next = getResources(ro.getString("next_url"),oauth2AccessToken);
-			for (int i = 0; i < next.length();i++) {
-				result.put(next.get(i));
-			}
+			List<JSONObject> next = getResources(ro.getString("next_url"),oauth2AccessToken);
+			result.addAll(next);
 		}
 		return result;
 	}
+	
+//	public static JSONArray xgetResources(String urlOffset, OAuth2AccessToken oauth2AccessToken) throws CloudFoundryException {
+//		ResponseObject ro = getResponsObject(urlOffset,oauth2AccessToken);
+//		JSONArray result = ro.getJSONArray("resources");
+//		while (!ro.isNull("next_url")) {
+//			JSONArray next = getResources(ro.getString("next_url"),oauth2AccessToken);
+//			for (int i = 0; i < next.length();i++) {
+//				result.put(next.get(i));
+//			}
+//		}
+//		return result;
+//	}
 
 	public static Date parseDate(Object dateString) {
 		if (dateString != null) {
