@@ -1,4 +1,4 @@
-package org.cloudfoundry.client.ibmlib;
+package org.cloudfoundry.client.compat;
 
 import java.io.IOException;
 import java.io.InputStream;

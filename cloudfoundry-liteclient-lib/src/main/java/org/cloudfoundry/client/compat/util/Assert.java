@@ -1,4 +1,4 @@
-package org.cloudfoundry.client.ibmlib.util;
+package org.cloudfoundry.client.compat.util;
 
 /**
  * 

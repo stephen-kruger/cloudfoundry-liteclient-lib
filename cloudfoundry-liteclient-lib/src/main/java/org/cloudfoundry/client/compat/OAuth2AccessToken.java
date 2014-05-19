@@ -1,4 +1,4 @@
-package org.cloudfoundry.client.ibmlib;
+package org.cloudfoundry.client.compat;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -12,7 +12,7 @@ import java.util.logging.Logger;
 import org.apache.http.HttpStatus;
 import org.apache.http.client.ClientProtocolException;
 import org.apache.http.entity.StringEntity;
-import org.cloudfoundry.client.ibmlib.util.Assert;
+import org.cloudfoundry.client.compat.util.Assert;
 import org.cloudfoundry.client.lib.CloudCredentials;
 import org.cloudfoundry.client.lib.CloudFoundryException;
 import org.cloudfoundry.client.lib.domain.CloudInfo;

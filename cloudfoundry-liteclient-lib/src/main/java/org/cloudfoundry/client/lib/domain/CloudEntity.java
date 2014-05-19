@@ -20,7 +20,7 @@ package org.cloudfoundry.client.lib.domain;
 import java.util.Date;
 import java.util.UUID;
 
-import org.cloudfoundry.client.ibmlib.ResponseObject;
+import org.cloudfoundry.client.compat.ResponseObject;
 import org.json.JSONException;
 import org.json.JSONObject;
 

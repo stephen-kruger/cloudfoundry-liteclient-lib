@@ -1,6 +1,6 @@
 package org.cloudfoundry.client.lib;
 
-import org.cloudfoundry.client.ibmlib.OAuth2AccessToken;
+import org.cloudfoundry.client.compat.OAuth2AccessToken;
 
 public class CloudCredentials {
 

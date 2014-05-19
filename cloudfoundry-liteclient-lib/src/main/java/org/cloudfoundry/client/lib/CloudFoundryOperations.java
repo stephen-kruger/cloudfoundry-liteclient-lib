@@ -24,7 +24,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.http.client.ClientProtocolException;
-import org.cloudfoundry.client.ibmlib.OAuth2AccessToken;
+import org.cloudfoundry.client.compat.OAuth2AccessToken;
 //import org.cloudfoundry.client.lib.archive.ApplicationArchive;
 import org.cloudfoundry.client.lib.domain.ApplicationStats;
 import org.cloudfoundry.client.lib.domain.CloudApplication;

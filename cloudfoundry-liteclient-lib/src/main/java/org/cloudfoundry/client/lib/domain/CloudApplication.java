@@ -4,8 +4,8 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
-import org.cloudfoundry.client.ibmlib.OAuth2AccessToken;
-import org.cloudfoundry.client.ibmlib.ResponseObject;
+import org.cloudfoundry.client.compat.OAuth2AccessToken;
+import org.cloudfoundry.client.compat.ResponseObject;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
