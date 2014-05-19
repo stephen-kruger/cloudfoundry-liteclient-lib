@@ -167,9 +167,10 @@ public interface CloudFoundryOperations {
 	 * @param memory memory to use in MB
 	 * @param uris list of URIs for the app
 	 * @param serviceNames list of service names to bind to app
+	 * @throws CloudFoundryException 
 	 */
 	void createApplication(String appName, Staging staging, Integer memory, List<String> uris,
-                           List<String> serviceNames);
+                           List<String> serviceNames) throws CloudFoundryException;
 
 	/**
 	 * Create application.
@@ -180,9 +181,10 @@ public interface CloudFoundryOperations {
 	 * @param memory       memory to use in MB
 	 * @param uris         list of URIs for the app
 	 * @param serviceNames list of service names to bind to app
+	 * @throws CloudFoundryException 
 	 */
 	public void createApplication(String appName, Staging staging, Integer disk, Integer memory, List<String> uris,
-	                              List<String> serviceNames);
+	                              List<String> serviceNames) throws CloudFoundryException;
 
 	/**
 	 * Create a service.
@@ -281,18 +283,21 @@ public interface CloudFoundryOperations {
 	 * Delete application.
 	 *
 	 * @param appName name of application
+	 * @throws CloudFoundryException 
 	 */
-	void deleteApplication(String appName);
+	void deleteApplication(String appName) throws CloudFoundryException;
 
 	/**
 	 * Delete all applications.
+	 * @throws CloudFoundryException 
 	 */
-	void deleteAllApplications();
+	void deleteAllApplications() throws CloudFoundryException;
 
 	/**
 	 * Delete all services.
+	 * @throws CloudFoundryException 
 	 */
-	void deleteAllServices();
+	void deleteAllServices() throws CloudFoundryException;
 
 	/**
 	 * Update application disk quota.
@@ -323,8 +328,9 @@ public interface CloudFoundryOperations {
 	 *
 	 * @param appName name of appplication
 	 * @param services list of services that should be bound to app
+	 * @throws CloudFoundryException 
 	 */
-	void updateApplicationServices(String appName, List<String> services);
+	void updateApplicationServices(String appName, List<String> services) throws CloudFoundryException;
 
 	/**
 	 * Update application staging information.
@@ -339,8 +345,9 @@ public interface CloudFoundryOperations {
 	 *
 	 * @param appName name of application
 	 * @param uris list of URIs the app should use
+	 * @throws CloudFoundryException 
 	 */
-	void updateApplicationUris(String appName, List<String> uris);
+	void updateApplicationUris(String appName, List<String> uris) throws CloudFoundryException;
 
 	/**
 	 * Update application env using a map where the key specifies the name of the environment variable
@@ -517,15 +524,17 @@ public interface CloudFoundryOperations {
 	 *
 	 * @param appName the application name
 	 * @param serviceName the service name
+	 * @throws CloudFoundryException 
 	 */
-	void bindService(String appName, String serviceName);
+	void bindService(String appName, String serviceName) throws CloudFoundryException;
 
 	/**
 	 * Un-associate (unprovision) a service from an application.
 	 * @param appName the application name
 	 * @param serviceName the service name
+	 * @throws CloudFoundryException 
 	 */
-	void unbindService(String appName, String serviceName);
+	void unbindService(String appName, String serviceName) throws CloudFoundryException;
 
 	/**
 	 * Get application instances info for application.
@@ -592,8 +601,9 @@ public interface CloudFoundryOperations {
 	 * Add a private domain in the current organization.
 	 *
 	 * @param domainName the domain to add
+	 * @throws CloudFoundryException 
 	 */
-	void addDomain(String domainName);
+	void addDomain(String domainName) throws CloudFoundryException;
 
 	/**
 	 * Delete a private domain in the current organization.
@@ -607,8 +617,9 @@ public interface CloudFoundryOperations {
 	 * Delete a private domain in the current organization.
 	 *
 	 * @param domainName the domain to delete
+	 * @throws CloudFoundryException 
 	 */
-	void deleteDomain(String domainName);
+	void deleteDomain(String domainName) throws CloudFoundryException;
 
 	/**
 	 * Get the info for all routes for a domain.
@@ -631,8 +642,9 @@ public interface CloudFoundryOperations {
 	 *
 	 * @param host the host of the route to delete
 	 * @param domainName the domain of the route to delete
+	 * @throws CloudFoundryException 
 	 */
-	void deleteRoute(String host, String domainName);
+	void deleteRoute(String host, String domainName) throws CloudFoundryException;
 
 	/**
 	 * Register a new RestLogCallback

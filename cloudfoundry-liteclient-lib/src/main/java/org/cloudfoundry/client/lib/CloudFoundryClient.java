@@ -414,11 +414,11 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 		return ResponseObject.getResponsObject(urlOffset, token);
 	}
 
-	public void createApplication(String appName, Staging staging, Integer memory, List<String> uris, List<String> serviceNames) {
+	public void createApplication(String appName, Staging staging, Integer memory, List<String> uris, List<String> serviceNames) throws CloudFoundryException {
 		createApplication(appName, staging, memory, 1204, uris, serviceNames);
 	}
 
-	public void createApplication(String appName, Staging staging, Integer disk, Integer memory, List<String> uris, List<String> serviceNames) {
+	public void createApplication(String appName, Staging staging, Integer disk, Integer memory, List<String> uris, List<String> serviceNames) throws CloudFoundryException {
 		HashMap<String, Object> appRequest = new HashMap<String, Object>();
 		if (sessionSpace!=null) {
 			appRequest.put("space_guid", sessionSpace.getMeta().getGuid());
@@ -432,7 +432,7 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 		addStagingToRequest(staging, appRequest);
 		appRequest.put("state", CloudApplication.AppState.STOPPED.name());
 
-		String appResp = postForObject(getUrl("/v2/apps"), appRequest, String.class);
+		String appResp = postForObject("/v2/apps", appRequest);
 		try {
 			Map<String, Object> appEntity = JsonUtil.convertJsonToMap(appResp);
 			UUID newAppGuid = CloudEntityResourceMapper.getMeta(appEntity).getGuid();
@@ -450,7 +450,7 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 		}
 	}
 
-	private void addUris(List<String> uris, UUID appGuid) {
+	private void addUris(List<String> uris, UUID appGuid) throws CloudFoundryException {
 		Map<String, UUID> domains = getDomainGuids();
 		for (String uri : uris) {
 			Map<String, String> uriInfo = new HashMap<String, String>(2);
@@ -501,24 +501,24 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 	//		return null;
 	//	}
 
-	private void bindRoute(String host, UUID domainGuid, UUID appGuid) {
+	private void bindRoute(String host, UUID domainGuid, UUID appGuid) throws CloudFoundryException {
 		UUID routeGuid = getRouteGuid(host, domainGuid);
 		if (routeGuid == null) {
 			routeGuid = doAddRoute(host, domainGuid);
 		}
 		String bindPath = "/v2/apps/"+appGuid+"/routes/"+routeGuid;
 		HashMap<String, Object> bindRequest = new HashMap<String, Object>();
-		putForObject(bindPath, bindRequest, String.class);
+		putForObject(bindPath, bindRequest);
 	}
 
-	private UUID doAddRoute(String host, UUID domainGuid) {
+	private UUID doAddRoute(String host, UUID domainGuid) throws CloudFoundryException {
 		assertSpaceProvided("add route");
 
 		HashMap<String, Object> routeRequest = new HashMap<String, Object>();
 		routeRequest.put("host", host);
 		routeRequest.put("domain_guid", domainGuid);
 		routeRequest.put("space_guid", sessionSpace.getMeta().getGuid());
-		String routeResp = postForObject(getUrl("/v2/routes"), routeRequest, String.class);
+		String routeResp = postForObject("/v2/routes", routeRequest);
 		try {
 			Map<String, Object> routeEntity = JsonUtil.convertJsonToMap(routeResp);
 			return CloudEntityResourceMapper.getMeta(routeEntity).getGuid();
@@ -529,7 +529,7 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 		}
 	}
 
-	private String putForObject(String urlOffset, HashMap<String, Object> routeRequest, Class<String> class1) {
+	private String putForObject(String urlOffset, HashMap<String, Object> routeRequest) {
 		try {
 			return ResponseObject.putResponsObject(urlOffset, token, null, routeRequest).toString();
 		} catch (Throwable e) {
@@ -538,18 +538,12 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 		}
 	}
 
-	private String postForObject(String urlOffset, HashMap<String, Object> routeRequest, Class<String> class1) {
-		try {
-			return ResponseObject.postResponsObject(urlOffset, token, null, routeRequest).toString();
-		} 
-		catch (Throwable e) {
-			e.printStackTrace();
-			return null;
-		}
+	private void deleteForObject(String urlOffset) throws CloudFoundryException {
+		ResponseObject.deleteResponsObject(urlOffset, token);		
 	}
 
-	private String getUrl(String string) {
-		return string;
+	private String postForObject(String urlOffset, HashMap<String, Object> routeRequest) throws CloudFoundryException {
+		return ResponseObject.postResponsObject(urlOffset, token, null, routeRequest).toString();
 	}
 
 	private void assertSpaceProvided(String operation) {
@@ -694,7 +688,6 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 
 	public void debugApplication(String appName, DebugMode mode) {
 		log.severe(NYI);
-		//cc.debugApplication(appName, mode);
 	}
 
 	public void stopApplication(String appName) throws CloudFoundryException {
@@ -724,49 +717,195 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 		return startApplication(appName);
 	}
 
-	public void deleteApplication(String appName) {
-		log.severe(NYI);
-		//cc.deleteApplication(appName);
+	public void deleteApplication(String appName) throws CloudFoundryException {
+		UUID appId = getAppId(appName);
+		doDeleteApplication(appId);
 	}
 
-	public void deleteAllApplications() {
-		log.severe(NYI);
-		//cc.deleteAllApplications();
+	private void doDeleteApplication(UUID appId) throws CloudFoundryException {
+		deleteForObject("/v2/apps/"+appId.toString()+"?recursive=true");
 	}
 
-	public void deleteAllServices() {
-		log.severe(NYI);
-		//cc.deleteAllServices();
+	public void deleteAllApplications() throws CloudFoundryException {
+		List<CloudApplication> cloudApps = getApplications();
+		for (CloudApplication cloudApp : cloudApps) {
+			deleteApplication(cloudApp.getName());
+		}
+	}
+
+	public void deleteAllServices() throws CloudFoundryException {
+		List<CloudService> cloudServices = getServices();
+		for (CloudService cloudService : cloudServices) {
+			doDeleteService(cloudService);
+		}
+	}
+
+	private void doDeleteService(CloudService cloudService) throws CloudFoundryException {
+		List<UUID> appIds = getAppsBoundToService(cloudService);
+		if (appIds.size() > 0) {
+			for (UUID appId : appIds) {
+				doUnbindService(appId, cloudService.getMeta().getGuid());
+			}
+		}
+		deleteForObject("/v2/service_instances/"+cloudService.getMeta().getGuid().toString());
+	}
+
+	private List<UUID> getAppsBoundToService(CloudService cloudService) throws CloudFoundryException {
+		List<UUID> appGuids = new ArrayList<UUID>();
+		String urlPath = "/v2";
+		//		if (sessionSpace != null) {
+		//			urlVars.put("space", sessionSpace.getMeta().getGuid());
+		//			urlPath = urlPath + "/spaces/{space}";
+		//		}
+		urlPath = urlPath + "/service_instances?q="+URLEncoder.encode("name:" + cloudService.getName());
+		JSONArray resourceList = ResponseObject.getResources(urlPath, token);
+		for (int i = 0; i < resourceList.length();i++) {
+			JSONObject resource = resourceList.getJSONObject(i);
+			JSONArray service_bindings = ResponseObject.getResources(resource.getJSONObject("entity").getString("service_bindings_url"), token);
+			for (int j = 0; j < service_bindings.length();j++) {
+				JSONObject entity = service_bindings.getJSONObject(j).getJSONObject("entity");
+				if (entity.has("app_guid"))
+					appGuids.add(UUID.fromString(entity.getString("app_guid")));
+			}
+		}
+		return appGuids;
+	}
+
+	private UUID getAppId(String appName) {
+		// no idea why the original code does all this pain. I will just scroll through my local list
+		//		Map<String, Object> resource = findApplicationResource(appName, false);
+		//		UUID guid = null;
+		//		if (resource != null) {
+		//			Map<String, Object> appMeta = (Map<String, Object>) resource.get("metadata");
+		//			guid = UUID.fromString(String.valueOf(appMeta.get("guid")));
+		//		}
+		//		return guid;
+		for (CloudApplication app : getApplications()) {
+			if (app.getName().equals(appName))
+				return app.getMeta().getGuid();
+		}
+		return null;
 	}
 
 	public void updateApplicationDiskQuota(String appName, int disk) {
-		log.severe(NYI);
-		//cc.updateApplicationDiskQuota(appName, disk);
+		UUID appId = getAppId(appName);
+		HashMap<String, Object> appRequest = new HashMap<String, Object>();
+		appRequest.put("disk_quota", disk);
+		String result = putForObject("/v2/apps/"+appId.toString(), appRequest);
+		log.info(result);
 	}
 
 	public void updateApplicationMemory(String appName, int memory) {
-		log.severe(NYI);
-		//cc.updateApplicationMemory(appName, memory);
+		UUID appId = getAppId(appName);
+		HashMap<String, Object> appRequest = new HashMap<String, Object>();
+		appRequest.put("memory", memory);
+		String result = putForObject("/v2/apps/"+appId.toString(), appRequest);
+		log.info(result);
 	}
 
 	public void updateApplicationInstances(String appName, int instances) {
-		log.severe(NYI);
-		//cc.updateApplicationInstances(appName, instances);
+		UUID appId = getAppId(appName);
+		HashMap<String, Object> appRequest = new HashMap<String, Object>();
+		appRequest.put("instances", instances);
+		String result = putForObject("/v2/apps/"+appId.toString(), appRequest);
+		log.info(result);
 	}
 
-	public void updateApplicationServices(String appName, List<String> services) {
-		log.severe(NYI);
-		//cc.updateApplicationServices(appName, services);
+	public void updateApplicationServices(String appName, List<String> services) throws CloudFoundryException {
+		CloudApplication app = getApplication(appName);
+		List<UUID> addServices = new ArrayList<UUID>();
+		List<UUID> deleteServices = new ArrayList<UUID>();
+		// services to add
+		for (String serviceName : services) {
+			if (!app.getServices().contains(serviceName)) {
+				CloudService cloudService = getService(serviceName);
+				if (cloudService != null) {
+					addServices.add(cloudService.getMeta().getGuid());
+				}
+				else {
+					throw new CloudFoundryException(HttpStatus.SC_NOT_FOUND, "Service with name " + serviceName +
+							" not found in current space " + sessionSpace.getName());
+				}
+			}
+		}
+		// services to delete
+		for (String serviceName : app.getServices()) {
+			if (!services.contains(serviceName)) {
+				CloudService cloudService = getService(serviceName);
+				if (cloudService != null) {
+					deleteServices.add(cloudService.getMeta().getGuid());
+				}
+			}
+		}
+		for (UUID serviceId : addServices) {
+			doBindService(app.getMeta().getGuid(), serviceId);
+		}
+		for (UUID serviceId : deleteServices) {
+			doUnbindService(app.getMeta().getGuid(), serviceId);
+		}
+	}
+
+	private void doBindService(UUID appId, UUID serviceId) throws CloudFoundryException {
+		HashMap<String, Object> serviceRequest = new HashMap<String, Object>();
+		serviceRequest.put("service_instance_guid", serviceId);
+		serviceRequest.put("app_guid", appId);
+		postForObject("/v2/service_bindings", serviceRequest);
+	}
+
+	private void doUnbindService(UUID appId, UUID serviceId) throws CloudFoundryException {
+		UUID serviceBindingId = getServiceBindingId(appId, serviceId);
+		deleteForObject("/v2/service_bindings/"+serviceBindingId.toString());
+	}
+
+	private UUID getServiceBindingId(UUID appId, UUID serviceId ) throws CloudFoundryException {
+		JSONArray resourceList = ResponseObject.getResources("/v2/apps/"+appId.toString()+"/service_bindings", token);
+		UUID serviceBindingId = null;
+		for (int i =0; i < resourceList.length();i++) {
+			JSONObject bindingMeta = resourceList.getJSONObject(i).getJSONObject("metadata");
+			JSONObject bindingEntity = resourceList.getJSONObject(i).getJSONObject("entity");
+			String serviceInstanceGuid = bindingEntity.getString("service_instance_guid");
+			if (serviceInstanceGuid != null && serviceInstanceGuid.equals(serviceId.toString())) {
+				String bindingGuid = (String) bindingMeta.get("guid");
+				serviceBindingId = UUID.fromString(bindingGuid);
+				break;
+			}
+		}
+		return serviceBindingId;
 	}
 
 	public void updateApplicationStaging(String appName, Staging staging) {
-		log.severe(NYI);
-		//cc.updateApplicationStaging(appName, staging);
+		UUID appId = getAppId(appName);
+		HashMap<String, Object> appRequest = new HashMap<String, Object>();
+		addStagingToRequest(staging, appRequest);
+		putForObject("/v2/apps/"+appId.toString(), appRequest);
 	}
 
-	public void updateApplicationUris(String appName, List<String> uris) {
-		log.severe(NYI);
-		//cc.updateApplicationUris(appName, uris);
+	public void updateApplicationUris(String appName, List<String> uris) throws CloudFoundryException {
+		CloudApplication app = getApplication(appName);
+		List<String> newUris = new ArrayList<String>(uris);
+		newUris.removeAll(app.getUris());
+		List<String> removeUris = app.getUris();
+		removeUris.removeAll(uris);
+		removeUris(removeUris, app.getMeta().getGuid());
+		addUris(newUris, app.getMeta().getGuid());
+	}
+	
+	private void removeUris(List<String> uris, UUID appGuid) throws CloudFoundryException {
+		Map<String, UUID> domains = getDomainGuids();
+		for (String uri : uris) {
+			Map<String, String> uriInfo = new HashMap<String, String>(2);
+			extractUriInfo(domains, uri, uriInfo);
+			UUID domainGuid = domains.get(uriInfo.get("domainName"));
+			unbindRoute(uriInfo.get("host"), domainGuid, appGuid);
+		}
+	}
+	
+	private void unbindRoute(String host, UUID domainGuid, UUID appGuid) throws CloudFoundryException {
+		UUID routeGuid = getRouteGuid(host, domainGuid);
+		if (routeGuid != null) {
+			String bindPath = "/v2/apps/"+appGuid+"/routes/"+routeGuid.toString();
+			deleteForObject(bindPath);
+		}
 	}
 
 	public void updateApplicationEnv(String appName, Map<String, String> env) {
@@ -775,8 +914,10 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 	}
 
 	public void updateApplicationEnv(String appName, List<String> env) {
-		log.severe(NYI);
-		//cc.updateApplicationEnv(appName, env);
+		UUID appId = getAppId(appName);
+		HashMap<String, Object> appRequest = new HashMap<String, Object>();
+		appRequest.put("environment_json", env);
+		putForObject("/v2/apps/"+appId.toString(), appRequest);
 	}
 
 	/**
@@ -905,16 +1046,18 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 		return null;//cc.getServiceOfferings();
 	}
 
-	public void bindService(String appName, String serviceName) {
-		log.severe(NYI);
-		//		cc.bindService(appName, serviceName);
+	public void bindService(String appName, String serviceName) throws CloudFoundryException {
+		CloudService cloudService = getService(serviceName);
+		UUID appId = getAppId(appName);
+		doBindService(appId, cloudService.getMeta().getGuid());
 	}
 
-	public void unbindService(String appName, String serviceName) {
-		log.severe(NYI);
-		//cc.unbindService(appName, serviceName);
+	public void unbindService(String appName, String serviceName) throws CloudFoundryException {
+		CloudService cloudService = getService(serviceName);
+		UUID appId = getAppId(appName);
+		doUnbindService(appId, cloudService.getMeta().getGuid());
 	}
-
+	
 	public InstancesInfo getApplicationInstances(String appName) throws CloudFoundryException {
 		CloudApplication app = getApplication(appName);
 		return getApplicationInstances(app);
@@ -970,8 +1113,10 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 	}
 
 	public void rename(String appName, String newName) {
-		log.severe(NYI);
-		//		cc.rename(appName, newName);
+		UUID appId = getAppId(appName);
+		HashMap<String, Object> appRequest = new HashMap<String, Object>();
+		appRequest.put("name", newName);
+		putForObject("/v2/apps/"+appId.toString(), appRequest);
 	}
 
 
@@ -1018,7 +1163,7 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 		return getDomainsForOrg(sessionSpace.getOrganization());
 	}
 
-	public void addDomain(String domainName) {
+	public void addDomain(String domainName) throws CloudFoundryException {
 		if (sessionSpace==null)
 			sessionSpace = getSpaces().get(0);
 		assertSpaceProvided("add domain");
@@ -1028,13 +1173,13 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 		}
 	}
 
-	private UUID doCreateDomain(String domainName) {
+	private UUID doCreateDomain(String domainName) throws CloudFoundryException {
 		String urlPath = "/v2/private_domains";
 		HashMap<String, Object> domainRequest = new HashMap<String, Object>();
 		domainRequest.put("owning_organization_guid", sessionSpace.getOrganization().getMeta().getGuid());
 		domainRequest.put("name", domainName);
 		domainRequest.put("wildcard", true);
-		String resp = postForObject(getUrl(urlPath), domainRequest, String.class);
+		String resp = postForObject(urlPath, domainRequest);
 		log.info(resp);
 		try {
 			//		Map<String, Object> respMap = JsonUtil.convertJsonToMap(resp);
@@ -1046,9 +1191,22 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 		return null;
 	}
 
-	public void deleteDomain(String domainName) {
-		log.severe(NYI);
-		//		cc.deleteDomain(domainName);
+	public void deleteDomain(String domainName) throws CloudFoundryException {
+		assertSpaceProvided("delete domain");
+		UUID domainGuid = getDomainGuid(domainName, true);
+		List<CloudRoute> routes = getRoutes(domainName);
+		if (routes.size() > 0) {
+			throw new IllegalStateException("Unable to remove domain that is in use --" +
+					" it has " + routes.size() + " routes.");
+		}
+		doDeleteDomain(domainGuid);
+	}
+	
+	private void doDeleteDomain(UUID domainGuid) throws CloudFoundryException {
+		Map<String, Object> urlVars = new HashMap<String, Object>();
+		String urlPath = "/v2/private_domains/"+domainGuid.toString();
+		urlVars.put("domain", domainGuid);
+		deleteForObject(urlPath);
 	}
 
 	public void removeDomain(String domainName) {
@@ -1100,9 +1258,19 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 		log.severe(NYI);
 	}
 
-	public void deleteRoute(String host, String domainName) {
-		//		cc.deleteRoute(host, domainName);
-		log.severe(NYI);
+	public void deleteRoute(String host, String domainName) throws CloudFoundryException {
+		assertSpaceProvided("delete route for domain");
+		UUID domainGuid = getDomainGuid(domainName, true);
+		UUID routeGuid = getRouteGuid(host, domainGuid);
+		if (routeGuid == null) {
+			throw new IllegalArgumentException("Host '" + host + "' not found for domain '" + domainName + "'.");
+		}
+		doDeleteRoute(routeGuid);
+	}
+	
+	private void doDeleteRoute(UUID routeGuid) throws CloudFoundryException {
+		String urlPath = "/v2/routes/"+routeGuid.toString();
+		deleteForObject(urlPath);
 	}
 
 	//	public void registerRestLogListener(RestLogCallback callBack) {

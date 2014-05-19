@@ -61,7 +61,7 @@ public class ClientTest extends TestCase {
 		}
 	}
 	
-	public void testDomains() {
+	public void testDomains() throws CloudFoundryException {
 //		List<CloudDomain> domains = cfc.getDomains();
 //		assertTrue("No domains found",domains.size()>0);
 //		log.info("Found "+domains.size()+" domains");
@@ -106,9 +106,9 @@ public class ClientTest extends TestCase {
 		log.info("Found "+apps.size()+" apps");
 		for (CloudApplication app : apps) {
 			log.info("App 1:"+app.toString());
-//			String fwk = (String) app.getStaging().getStack();//.get("model");
-//			assertNotNull(app.getStaging());
-//			assertNotNull(cfc.getApplicationStats(app.getName()));
+			assertNotNull(app.getStaging());
+			assertNotNull(app.getStaging().getStack());
+			assertNotNull(cfc.getApplicationStats(app.getName()));
 			assertNotNull(cfc.getApplicationInstances(app));
 			assertNotNull(cfc.getApplicationInstances(app.getName()));
 		}
@@ -145,6 +145,7 @@ public class ClientTest extends TestCase {
 			assertNotNull("Service name was null",s.getName());
 			assertNotNull("Service label was null",s.getLabel());
 			System.out.println(">>>"+s.getProvider());
+//			System.out.println("Bound services:"+cfc.getAppsBoundToService(s).size());
 //			assertNotNull("Provider was null",s.getProvider());
 		}
 	}
