@@ -1,8 +1,10 @@
 package org.cloudfoundry.client.lib.domain;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 import org.cloudfoundry.client.compat.OAuth2AccessToken;
 import org.cloudfoundry.client.compat.ResponseObject;
@@ -178,6 +180,15 @@ public class CloudApplication extends CloudEntity {
 	public List<String> getEnv() {
 		return env;
 	}
+	
+	public Map<String,String> getEnvAsMap() {
+		Map<String,String> envMap = new HashMap<String, String>();
+		for (String nameAndValue : getEnv()) {
+			String[] parts = nameAndValue.split("=");
+			envMap.put(parts[0], parts.length == 2 ? parts[1] : null);
+		}
+		return envMap;
+	}
 
 	private static List<String> getEnvFromJSON(JSONObject jsonObject) throws JSONException {
 		List<String> e = new ArrayList<String>();
@@ -271,6 +282,8 @@ public class CloudApplication extends CloudEntity {
 	public void setRunningInstances(int runningInstances) {
 		this.runningInstances = runningInstances;
 	}
+
+
 }
 
 

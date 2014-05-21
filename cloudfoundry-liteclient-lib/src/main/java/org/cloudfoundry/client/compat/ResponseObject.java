@@ -25,6 +25,7 @@ import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpDelete;
 import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.methods.HttpHead;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
 import org.apache.http.entity.StringEntity;
@@ -102,7 +103,7 @@ public class ResponseObject extends JSONObject {
 		HttpClient client = new DefaultHttpClient();
 		try {
 			HttpResponse response = client.execute(request);	
-//			HttpEntity entity = response.getEntity();
+			//			HttpEntity entity = response.getEntity();
 			if (response.getStatusLine().getStatusCode()!=HttpStatus.SC_OK) {
 				throw new CloudFoundryException(response.getStatusLine().getStatusCode(), "Client Error",response.getStatusLine().getReasonPhrase());
 			}
@@ -111,12 +112,16 @@ public class ResponseObject extends JSONObject {
 		catch (IOException ioe) {
 			throw new CloudFoundryException(HttpStatus.SC_BAD_REQUEST, "IOException",ioe.getMessage());
 		}
-		
+
+	}
+
+	public static ResponseObject getResponsObject(String urlOffset, OAuth2AccessToken oauth2AccessToken) throws CloudFoundryException {
+		return getResponsObject(urlOffset,oauth2AccessToken,null);	
 	}
 	/*
 	 * This method uses the existing oauth token to authenticate the request.
 	 */
-	public static ResponseObject getResponsObject(String urlOffset, OAuth2AccessToken oauth2AccessToken) throws CloudFoundryException {
+	public static ResponseObject getResponsObject(String urlOffset, OAuth2AccessToken oauth2AccessToken, Map<String, String> headers) throws CloudFoundryException {
 		HttpGet request = new HttpGet();
 
 		try {
@@ -125,6 +130,12 @@ public class ResponseObject extends JSONObject {
 		catch (Throwable e) {
 			e.printStackTrace();
 			throw new CloudFoundryException(HttpStatus.SC_BAD_REQUEST, "URI Error",e.getMessage());
+		}
+
+		if (headers!=null) {
+			for (String key : headers.keySet()) {
+				request.setHeader(key, headers.get(key));			
+			}
 		}
 
 		log.info(request.getURI().toString());
@@ -139,6 +150,7 @@ public class ResponseObject extends JSONObject {
 				throw new CloudFoundryException(response.getStatusLine().getStatusCode(), "Client Error",response.getStatusLine().getReasonPhrase());
 			}
 			ResponseObject ro = new ResponseObject(entity.getContent());
+			//			ro.put("status", response.getStatusLine().getStatusCode());
 			return ro;
 		}
 		catch (IOException ioe) {
@@ -147,6 +159,10 @@ public class ResponseObject extends JSONObject {
 	}
 
 	public static String getResponsObjectAsString(String urlOffset, OAuth2AccessToken oauth2AccessToken) throws CloudFoundryException {
+		return getResponsObjectAsString(urlOffset,oauth2AccessToken,null);
+	}
+
+	public static String getResponsObjectAsString(String urlOffset, OAuth2AccessToken oauth2AccessToken,Map<String,String>headers) throws CloudFoundryException {
 		HttpGet request = new HttpGet();
 
 		try {
@@ -157,6 +173,12 @@ public class ResponseObject extends JSONObject {
 			throw new CloudFoundryException(HttpStatus.SC_BAD_REQUEST, "URI Error",e.getMessage());
 		}
 
+		if (headers!=null) {
+			for (String key : headers.keySet()) {
+				request.setHeader(key, headers.get(key));			
+			}
+		}
+		
 		log.info(request.getURI().toString());
 		request.setHeader("Content-Type", "application/x-www-form-urlencoded");
 		request.setHeader("Accept", "application/json;charset=utf-8");
@@ -165,7 +187,7 @@ public class ResponseObject extends JSONObject {
 		try {
 			HttpResponse response = client.execute(request);	
 			HttpEntity entity = response.getEntity();
-			if (response.getStatusLine().getStatusCode()!=HttpStatus.SC_OK) {
+			if ((response.getStatusLine().getStatusCode()!=HttpStatus.SC_OK)&&(response.getStatusLine().getStatusCode()!=HttpStatus.SC_PARTIAL_CONTENT)) {
 				throw new CloudFoundryException(response.getStatusLine().getStatusCode(), "Client Error",response.getStatusLine().getReasonPhrase());
 			}
 			return streamToString(entity.getContent());
@@ -214,6 +236,48 @@ public class ResponseObject extends JSONObject {
 
 	public static ResponseObject putResponsObject(String urlOffset, OAuth2AccessToken oauth2AccessToken, Map<String, String> headers, Map<String,Object> body) throws ClientProtocolException, IOException, URISyntaxException, JSONException {
 		return putResponsObject(urlOffset, oauth2AccessToken, headers, getStringEntity(body));
+	}
+
+	/*
+	 * Returns all the headers in a JSON object
+	 */
+	public static Map<String, String> headResponsObject(String urlOffset, OAuth2AccessToken oauth2AccessToken, Map<String, String> headers, int expect) throws CloudFoundryException {
+		HttpHead request = new HttpHead();
+		try {
+			request.setURI(new URL(oauth2AccessToken.getString(OAuth2AccessToken.Fields.target.name())+urlOffset).toURI());
+		} catch (MalformedURLException | JSONException | URISyntaxException e) {
+			e.printStackTrace();
+			throw new CloudFoundryException(HttpStatus.SC_BAD_REQUEST,e.getMessage());
+		} 
+		request.setHeader("Content-Type", "application/x-www-form-urlencoded");
+		request.setHeader("Accept", "application/json;charset=utf-8");
+		request.setHeader("Authorization", "bearer "+oauth2AccessToken.getString(OAuth2AccessToken.Fields.access_token.name()));
+
+		if (headers!=null) {
+			for (String key : headers.keySet()) {
+				request.setHeader(key, headers.get(key));			
+			}
+		}
+		try {
+			HttpClient client = new DefaultHttpClient();
+			HttpResponse response = client.execute(request);	
+			int returnCode = response.getStatusLine().getStatusCode();
+			if ((returnCode!=HttpStatus.SC_OK)&&(returnCode!=HttpStatus.SC_PARTIAL_CONTENT)) {
+				throw new ClientProtocolException(response.getStatusLine().getReasonPhrase());
+			}
+			// copy the headers into the response object in case caller needs them, some silly
+			// api contract thought this is a good way to communicate information.
+			Header[] rheaders = response.getAllHeaders();
+			headers = new HashMap<String,String>();
+			for (int i = 0; i < rheaders.length; i++) {
+				headers.put(rheaders[i].getName(), rheaders[i].getValue());
+			}
+			return headers;
+		}
+		catch (Throwable t) {
+			t.printStackTrace();
+			throw new CloudFoundryException(HttpStatus.SC_BAD_REQUEST,t.getMessage());
+		}
 	}
 
 	public static ResponseObject putResponsObject(String urlOffset, OAuth2AccessToken oauth2AccessToken, Map<String, String> headers, StringEntity body) throws ClientProtocolException, IOException, URISyntaxException, JSONException {
@@ -292,7 +356,7 @@ public class ResponseObject extends JSONObject {
 		List<JSONObject> result = new ArrayList<JSONObject>();
 		for (int i = 0; i < thisResult.length();i++)
 			result.add(thisResult.getJSONObject(i));
-		
+
 		// now scroll through subsequent pages
 		while (!ro.isNull("next_url")) {
 			List<JSONObject> next = getResources(ro.getString("next_url"),oauth2AccessToken);
@@ -300,18 +364,18 @@ public class ResponseObject extends JSONObject {
 		}
 		return result;
 	}
-	
-//	public static JSONArray xgetResources(String urlOffset, OAuth2AccessToken oauth2AccessToken) throws CloudFoundryException {
-//		ResponseObject ro = getResponsObject(urlOffset,oauth2AccessToken);
-//		JSONArray result = ro.getJSONArray("resources");
-//		while (!ro.isNull("next_url")) {
-//			JSONArray next = getResources(ro.getString("next_url"),oauth2AccessToken);
-//			for (int i = 0; i < next.length();i++) {
-//				result.put(next.get(i));
-//			}
-//		}
-//		return result;
-//	}
+
+	//	public static JSONArray xgetResources(String urlOffset, OAuth2AccessToken oauth2AccessToken) throws CloudFoundryException {
+	//		ResponseObject ro = getResponsObject(urlOffset,oauth2AccessToken);
+	//		JSONArray result = ro.getJSONArray("resources");
+	//		while (!ro.isNull("next_url")) {
+	//			JSONArray next = getResources(ro.getString("next_url"),oauth2AccessToken);
+	//			for (int i = 0; i < next.length();i++) {
+	//				result.put(next.get(i));
+	//			}
+	//		}
+	//		return result;
+	//	}
 
 	public static Date parseDate(Object dateString) {
 		if (dateString != null) {
@@ -337,19 +401,19 @@ public class ResponseObject extends JSONObject {
 
 	public static void changePassword(OAuth2AccessToken token, String oldPassword, String newPassword) {
 		// TODO - not my high priority right now
-//		HttpHeaders headers = new HttpHeaders();
-//		headers.add(AUTHORIZATION_HEADER_KEY, token.getTokenType() + " " + token.getValue());
-//		HttpEntity info = new HttpEntity(headers);
-//		ResponseEntity<String> response = restTemplate.exchange(authorizationUrl + "/userinfo", HttpMethod.GET, info, String.class);
-//		Map<String, Object> responseMap = JsonUtil.convertJsonToMap(response.getBody());
-//		String userId = (String) responseMap.get("user_id");
-//		Map<String, Object> body = new HashMap<String, Object>();
-//		body.put("schemas", new String[] {"urn:scim:schemas:core:1.0"});
-//		body.put("password", newPassword);
-//		body.put("oldPassword", oldPassword);
-//		HttpEntity<Map> httpEntity = new HttpEntity<Map>(body, headers);
-//		restTemplate.put(authorizationUrl + "/User/{id}/password", httpEntity, userId);
-		
+		//		HttpHeaders headers = new HttpHeaders();
+		//		headers.add(AUTHORIZATION_HEADER_KEY, token.getTokenType() + " " + token.getValue());
+		//		HttpEntity info = new HttpEntity(headers);
+		//		ResponseEntity<String> response = restTemplate.exchange(authorizationUrl + "/userinfo", HttpMethod.GET, info, String.class);
+		//		Map<String, Object> responseMap = JsonUtil.convertJsonToMap(response.getBody());
+		//		String userId = (String) responseMap.get("user_id");
+		//		Map<String, Object> body = new HashMap<String, Object>();
+		//		body.put("schemas", new String[] {"urn:scim:schemas:core:1.0"});
+		//		body.put("password", newPassword);
+		//		body.put("oldPassword", oldPassword);
+		//		HttpEntity<Map> httpEntity = new HttpEntity<Map>(body, headers);
+		//		restTemplate.put(authorizationUrl + "/User/{id}/password", httpEntity, userId);
+
 	}
 
 }

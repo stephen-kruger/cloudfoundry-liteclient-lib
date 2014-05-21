@@ -384,9 +384,10 @@ public interface CloudFoundryOperations {
 	 * @param appName name of the application
 	 * @return a Map containing the logs. The logs will be returned with the path to the log file used as the key and
 	 * the full content of the log file will be returned as a String value for the corresponding key.
+	 * @throws CloudFoundryException 
 	 * @deprecated Use {@link #streamLogs(String, ApplicationLogListener)} or {@link #streamRecentLogs(String, ApplicationLogListener)}
 	 */
-	Map<String, String> getLogs(String appName);
+	Map<String, String> getLogs(String appName) throws CloudFoundryException;
 	
 	/**
 	 * Stream application logs produced <em>after</em> this method is called.

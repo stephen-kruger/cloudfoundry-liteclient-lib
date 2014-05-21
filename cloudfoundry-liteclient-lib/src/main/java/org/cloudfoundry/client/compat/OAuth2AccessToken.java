@@ -1,8 +1,6 @@
 package org.cloudfoundry.client.compat;
 
-import java.io.IOException;
 import java.io.InputStream;
-import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.util.HashMap;
@@ -10,7 +8,6 @@ import java.util.Map;
 import java.util.logging.Logger;
 
 import org.apache.http.HttpStatus;
-import org.apache.http.client.ClientProtocolException;
 import org.apache.http.entity.StringEntity;
 import org.cloudfoundry.client.compat.util.Assert;
 import org.cloudfoundry.client.lib.CloudCredentials;

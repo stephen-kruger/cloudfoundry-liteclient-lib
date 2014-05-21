@@ -229,17 +229,17 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 
 	public CloudInfo getCloudInfo() throws CloudFoundryException {
 		if (info == null) {
-				if (token==null) {
-					log.info("Not logged in");
-					token = new OAuth2AccessToken("",cloudControllerUrl.toString());
-					JSONObject v2_info = ResponseObject.getResponsObject("/info", token);
-					info = new CloudInfo(v2_info);
-				}
-				else {
-					JSONObject v1_info = ResponseObject.getResponsObject("/info", token);
-					JSONObject v2_info = ResponseObject.getResponsObject("/v2/info", token);
-					info = new CloudInfo(v1_info, v2_info);
-				}
+			if (token==null) {
+				log.info("Not logged in");
+				token = new OAuth2AccessToken("",cloudControllerUrl.toString());
+				JSONObject v2_info = ResponseObject.getResponsObject("/info", token);
+				info = new CloudInfo(v2_info);
+			}
+			else {
+				JSONObject v1_info = ResponseObject.getResponsObject("/info", token);
+				JSONObject v2_info = ResponseObject.getResponsObject("/v2/info", token);
+				info = new CloudInfo(v1_info, v2_info);
+			}
 		}
 		return info;
 	}
@@ -325,13 +325,13 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 		if (applications==null) {
 			applications = new ArrayList<CloudApplication>();
 			List<JSONObject> ja = ResponseObject.getResources("/v2/apps?inline-relations-depth=1", token);
-				for (JSONObject resource : ja) {
-					CloudApplication app = new CloudApplication(token,resource.getJSONObject(ENTITY),resource.getJSONObject(METADATA));
-					applications.add(app);
-				}
-				for (CloudApplication app : applications) {
-					app.setUris(findApplicationUris(app.getMeta().getGuid()));
-				}
+			for (JSONObject resource : ja) {
+				CloudApplication app = new CloudApplication(token,resource.getJSONObject(ENTITY),resource.getJSONObject(METADATA));
+				applications.add(app);
+			}
+			for (CloudApplication app : applications) {
+				app.setUris(findApplicationUris(app.getMeta().getGuid()));
+			}
 		}
 		return applications;
 	}
@@ -521,6 +521,15 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 	private String putForObject(String urlOffset, HashMap<String, Object> routeRequest) {
 		try {
 			return ResponseObject.putResponsObject(urlOffset, token, null, routeRequest).toString();
+		} catch (Throwable e) {
+			e.printStackTrace();
+			return null;
+		}
+	}
+	
+	private Map<String, String> headForObject(String urlOffset, Map<String, String> headers, int expect) throws CloudFoundryException {
+		try {
+			return ResponseObject.headResponsObject(urlOffset, token, headers,expect);
 		} catch (Throwable e) {
 			e.printStackTrace();
 			return null;
@@ -948,17 +957,32 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 		putForObject("/v2/apps/"+appId.toString(), appRequest);
 	}
 
-	/**
-	 * @deprecated use {@link #streamLogs(String, ApplicationLogListener)} or {@link #streamRecentLogs(String, ApplicationLogListener)}
-	 */
-	public Map<String, String> getLogs(String appName) {
-		log.severe(NYI);
-		return null;//cc.getLogs(appName);
+	public Map<String, String> getLogs(String appName) throws CloudFoundryException {
+		String urlPath = "/v2/apps/"+getAppId(appName)+"/instances/0/files";
+		String instance = String.valueOf(0);
+		return doGetLogs(urlPath, appName, instance);
 	}
 
-	//	public StreamingLogToken streamLogs(String appName, ApplicationLogListener listener) {
-	//	    return null;//cc.streamLogs(appName, listener);
-	//	}
+	public StreamingLogToken streamLogs(String appName, ApplicationLogListener listener) throws CloudFoundryException {	        
+	        UUID appId = getAppId(appName);
+	        CloudInfo cloudInfo = getCloudInfo();
+	        log.info("Streamlogs :"+cloudInfo.getLoggregatorEndpoint());
+//	        String mode = recent ? "dump" : "tail";
+//	        URI loggregatorUri = loggregatorUriTemplate.expand(cloudInfo.getLoggregatorEndpoint(), mode, appId);
+//	        try {
+//	            WebSocketContainer container = ContainerProvider.getWebSocketContainer();
+//	            ClientEndpointConfig config = ClientEndpointConfig.Builder.create().configurator(configurator).build();
+//	            Session session = container.connectToServer(new LoggregatorEndpoint(listener), config, loggregatorUri);
+//	            return new StreamingLogTokenImpl(session);
+//	        } 
+//	        catch (DeploymentException e) {
+//	            throw new CloudOperationException(e);
+//	        } 
+//	        catch (IOException e) {
+//	            throw new CloudOperationException(e);
+//	        }
+	        return null;
+	}
 
 	//    public StreamingLogToken streamRecentLogs(String appName, ApplicationLogListener listener) {
 	//        return null;//cc.streamRecentLogs(appName, listener);
@@ -1027,11 +1051,11 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 		return "/v2/apps/{appId}/instances/"+instanceIndex+"/files/"+filePath;
 	}
 
-	protected String doGetFile(String urlPath, Object app, int instanceIndex, String filePath, int startPosition, int endPosition) {
+	protected String doGetFile(String urlPath, Object app, int instanceIndex, String filePath, int startPosition, int endPosition) throws CloudFoundryException {
 		return doGetFile(urlPath, app, String.valueOf(instanceIndex), filePath, startPosition, endPosition);
 	}
 
-	protected String doGetFile(String urlPath, Object app, String instance, String filePath, int startPosition, int endPosition) {
+	protected String doGetFile(String urlPath, Object app, String instance, String filePath, int startPosition, int endPosition) throws CloudFoundryException {
 		Assert.isTrue(startPosition >= -1, "Invalid start position value: " + startPosition);
 		Assert.isTrue(endPosition >= -1, "Invalid end position value: " + endPosition);
 		Assert.isTrue(startPosition < 0 || endPosition < 0 || endPosition >= startPosition,
@@ -1048,69 +1072,54 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 
 		final String range =
 				"bytes=" + (start == -1 ? "" : start) + "-" + (end == -1 ? "" : end);
-
 		return doGetFileByRange(urlPath, app, instance, filePath, start, end, range);
 	}
 
-	private String doGetFileByRange(String urlPath, Object app, String instance, String filePath, int start, int end, String range) {
+	private String doGetFileByRange(String urlPath, Object app, String instance, String filePath, int start, int end, String range) throws CloudFoundryException {
 
-		//		boolean supportsRanges;
-		//		try {
-		//			supportsRanges = getRestTemplate().execute(getUrl(urlPath), HttpMethod.HEAD, new RequestCallback() {
-		//				public void doWithRequest(ClientHttpRequest request) throws IOException {
-		//					request.getHeaders().set("Range", "bytes=0-");
-		//				}
-		//			},
-		//			new ResponseExtractor<Boolean>() {
-		//				public Boolean extractData(ClientHttpResponse response) throws IOException {
-		//					return response.getStatusCode().equals(HttpStatus.PARTIAL_CONTENT);
-		//				}
-		//			},
-		//			app, instance, filePath);
-		//		} catch (CloudFoundryException e) {
-		//			if (e.getStatusCode().equals(HttpStatus.REQUESTED_RANGE_NOT_SATISFIABLE)) {
-		//				// must be a 0 byte file
-		//				return "";
-		//			} else {
-		//				throw e;
-		//			}
-		//		}
-		//		HttpHeaders headers = new HttpHeaders();
-		//		if (supportsRanges) {
-		//			headers.set("Range", range);
-		//		}
-		//		HttpEntity<Object> requestEntity = new HttpEntity<Object>(headers);
-		//		ResponseEntity<String> responseEntity = getRestTemplate().exchange(getUrl(urlPath),
-		//				HttpMethod.GET, requestEntity, String.class, app, instance, filePath);
-		//		String response = responseEntity.getBody();
-		//		boolean partialFile = false;
-		//		if (responseEntity.getStatusCode().equals(HttpStatus.PARTIAL_CONTENT)) {
-		//			partialFile = true;
-		//		}
-		//		if (!partialFile && response != null) {
-		//			if (start == -1) {
-		//				return response.substring(response.length() - end);
-		//			} else {
-		//				if (start >= response.length()) {
-		//					if (response.length() == 0) {
-		//						return "";
-		//					}
-		//					throw new CloudFoundryException(HttpStatus.REQUESTED_RANGE_NOT_SATISFIABLE,
-		//							"The starting position " + start + " is past the end of the file content.");
-		//				}
-		//				if (end != -1) {
-		//					if (end >= response.length()) {
-		//						end = response.length() - 1;
-		//					}
-		//					return response.substring(start, end + 1);
-		//				} else {
-		//					return response.substring(start);
-		//				}
-		//			}
-		//		}
-		//		return response;
-		// TODO - implement this method
-		return null;
+				boolean supportsRanges;
+					Map<String,String>headers = new HashMap<String,String>();
+					headers.put("Range", "bytes=0-");
+					try {
+						headForObject(urlPath+"/"+filePath,headers,HttpStatus.SC_OK);
+						supportsRanges = true;
+					}
+					catch (CloudFoundryException e) {
+						supportsRanges = false;
+					}
+
+				headers = new HashMap<String,String>();
+				if (supportsRanges) {
+					headers.put("Range", range);
+				}
+				String response = ResponseObject.getResponsObjectAsString(urlPath+"/"+filePath, token, headers);
+				
+				boolean partialFile = false;
+//				if (response.getInt("status")!=HttpStatus.SC_PARTIAL_CONTENT) {
+					partialFile = true;
+//				}
+				if (!partialFile && response != null) {
+					if (start == -1) {
+						return response.toString().substring(response.length() - end);
+					} else {
+						if (start >= response.length()) {
+							if (response.length() == 0) {
+								return "";
+							}
+							throw new CloudFoundryException(HttpStatus.SC_REQUESTED_RANGE_NOT_SATISFIABLE,
+									"The starting position " + start + " is past the end of the file content.");
+						}
+						if (end != -1) {
+							if (end >= response.length()) {
+								end = response.length() - 1;
+							}
+							return response.toString().substring(start, end + 1);
+						} else {
+							return response.toString().substring(start);
+						}
+					}
+				}
+				return response.toString();
 	}
 
 	protected Object getFileAppId(String appName) throws CloudFoundryException {
@@ -1342,7 +1351,7 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 		}
 		return domains;
 	}
-	
+
 	public List<CloudDomain> getDomains() {
 		List<CloudOrganization> orgs = getOrganizations();
 		List<CloudDomain> domains = new ArrayList<CloudDomain>();
