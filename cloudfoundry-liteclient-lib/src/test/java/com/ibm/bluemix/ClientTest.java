@@ -1,7 +1,15 @@
 package com.ibm.bluemix;
 
-import java.io.FileInputStream;
+import junit.framework.TestCase;
+import org.cloudfoundry.client.lib.CloudCredentials;
+import org.cloudfoundry.client.lib.CloudFoundryClient;
+import org.cloudfoundry.client.lib.CloudFoundryException;
+import org.cloudfoundry.client.lib.domain.*;
+import org.cloudfoundry.client.lib.domain.CloudInfo.Limits;
+import org.json.JSONException;
+
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -9,20 +17,6 @@ import java.net.URL;
 import java.util.List;
 import java.util.Properties;
 import java.util.logging.Logger;
-
-import junit.framework.TestCase;
-
-import org.cloudfoundry.client.lib.CloudCredentials;
-import org.cloudfoundry.client.lib.CloudFoundryClient;
-import org.cloudfoundry.client.lib.CloudFoundryException;
-import org.cloudfoundry.client.lib.domain.CloudApplication;
-import org.cloudfoundry.client.lib.domain.CloudDomain;
-import org.cloudfoundry.client.lib.domain.CloudInfo;
-import org.cloudfoundry.client.lib.domain.CloudInfo.Limits;
-import org.cloudfoundry.client.lib.domain.CloudOrganization;
-import org.cloudfoundry.client.lib.domain.CloudService;
-import org.cloudfoundry.client.lib.domain.CloudSpace;
-import org.json.JSONException;
 
 public class ClientTest extends TestCase {
 	private static Logger log = Logger.getAnonymousLogger();
@@ -37,8 +31,12 @@ public class ClientTest extends TestCase {
 		super.setUp();
 		
 		Properties p = new Properties();
-		p.load(new FileInputStream("src/test/resources/creds.properties"));
-		user = p.getProperty("user");
+        assertNotNull("creds.properties file missing",
+                getClass().getResource("creds.properties"));
+        InputStream stream = Thread.currentThread().getContextClassLoader()
+                .getResourceAsStream("creds.properties");
+        p.load(stream);
+        user = p.getProperty("user");
 		password = p.getProperty("passwd");
 		target = p.getProperty("base");
 		
@@ -193,4 +191,7 @@ public class ClientTest extends TestCase {
 			throw new RuntimeException("The target URL is not valid: " + e.getMessage());
 		}
 	}
+
+
+
 }
