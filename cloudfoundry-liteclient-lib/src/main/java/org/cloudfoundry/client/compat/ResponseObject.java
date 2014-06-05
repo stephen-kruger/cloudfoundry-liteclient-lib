@@ -1,9 +1,9 @@
 package org.cloudfoundry.client.compat;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
-import java.lang.reflect.Array;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -22,14 +22,12 @@ import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
 import org.apache.http.client.ClientProtocolException;
-import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpDelete;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpHead;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
 import org.apache.http.entity.StringEntity;
-import org.apache.http.impl.client.DefaultHttpClient;
 import org.cloudfoundry.client.lib.CloudFoundryException;
 import org.cloudfoundry.client.lib.util.JsonUtil;
 import org.json.JSONArray;
@@ -58,16 +56,37 @@ public class ResponseObject extends JSONObject {
 	}
 
 	private static String streamToString(InputStream is) {
-		java.util.Scanner s = new java.util.Scanner(is).useDelimiter("\\A");
-		String result =  s.hasNext() ? s.next() : "";
+		//		java.util.Scanner s = new java.util.Scanner(is).useDelimiter("\\A");
+		//		String result =  s.hasNext() ? s.next() : "";
+		//		try {
+		//			s.close();
+		//			is.close();
+		//		} 
+		//		catch (IOException e) {
+		//			e.printStackTrace();
+		//		}
+		//		return result;
 		try {
-			s.close();
-			is.close();
-		} 
+			ByteArrayOutputStream baos = new ByteArrayOutputStream();
+			byte[] buffer = new byte[1024];
+			int length = 0;
+			while ((length = is.read(buffer)) != -1) {
+				baos.write(buffer, 0, length);
+			}
+			return new String(baos.toByteArray());
+		}
 		catch (IOException e) {
 			e.printStackTrace();
+			return null;
 		}
-		return result;
+		finally {
+			try {
+				is.close();
+			} 
+			catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
 	}
 
 	protected static URI getTargetAction(URL target,String rest) throws MalformedURLException, URISyntaxException {
@@ -100,12 +119,11 @@ public class ResponseObject extends JSONObject {
 		request.setHeader("Content-Type", "application/x-www-form-urlencoded");
 		request.setHeader("Accept", "application/json;charset=utf-8");
 		request.setHeader("Authorization", "bearer "+oauth2AccessToken.getString(OAuth2AccessToken.Fields.access_token.name()));
-		HttpClient client = new DefaultHttpClient();
 		try {
-			HttpResponse response = client.execute(request);	
+			HttpResponse response = HttpClientFactory.getThreadSafeClient().execute(request);	
 			//			HttpEntity entity = response.getEntity();
 			if (response.getStatusLine().getStatusCode()!=HttpStatus.SC_OK) {
-				throw new CloudFoundryException(response.getStatusLine().getStatusCode(), "Client Error",response.getStatusLine().getReasonPhrase());
+				throw new CloudFoundryException(response.getStatusLine().getStatusCode(), "Client Error:"+response.getStatusLine().getStatusCode(),response.getStatusLine().getReasonPhrase());
 			}
 			//ResponseObject ro = new ResponseObject(entity.getContent());
 		}
@@ -138,19 +156,20 @@ public class ResponseObject extends JSONObject {
 			}
 		}
 
-		log.info(request.getURI().toString());
+		log.fine(request.getURI().toString());
 		request.setHeader("Content-Type", "application/x-www-form-urlencoded");
 		request.setHeader("Accept", "application/json;charset=utf-8");
 		request.setHeader("Authorization", "bearer "+oauth2AccessToken.getString(OAuth2AccessToken.Fields.access_token.name()));
-		HttpClient client = new DefaultHttpClient();
+		HttpEntity entity;
 		try {
-			HttpResponse response = client.execute(request);	
-			HttpEntity entity = response.getEntity();
+			HttpResponse response = HttpClientFactory.getThreadSafeClient().execute(request);	
+			entity = response.getEntity();
 			if (response.getStatusLine().getStatusCode()!=HttpStatus.SC_OK) {
 				throw new CloudFoundryException(response.getStatusLine().getStatusCode(), "Client Error",response.getStatusLine().getReasonPhrase());
 			}
 			ResponseObject ro = new ResponseObject(entity.getContent());
 			//			ro.put("status", response.getStatusLine().getStatusCode());
+			entity.consumeContent();
 			return ro;
 		}
 		catch (IOException ioe) {
@@ -178,14 +197,13 @@ public class ResponseObject extends JSONObject {
 				request.setHeader(key, headers.get(key));			
 			}
 		}
-		
-		log.info(request.getURI().toString());
+
+		log.fine(request.getURI().toString());
 		request.setHeader("Content-Type", "application/x-www-form-urlencoded");
 		request.setHeader("Accept", "application/json;charset=utf-8");
 		request.setHeader("Authorization", "bearer "+oauth2AccessToken.getString(OAuth2AccessToken.Fields.access_token.name()));
-		HttpClient client = new DefaultHttpClient();
 		try {
-			HttpResponse response = client.execute(request);	
+			HttpResponse response = HttpClientFactory.getThreadSafeClient().execute(request);	
 			HttpEntity entity = response.getEntity();
 			if ((response.getStatusLine().getStatusCode()!=HttpStatus.SC_OK)&&(response.getStatusLine().getStatusCode()!=HttpStatus.SC_PARTIAL_CONTENT)) {
 				throw new CloudFoundryException(response.getStatusLine().getStatusCode(), "Client Error",response.getStatusLine().getReasonPhrase());
@@ -210,10 +228,9 @@ public class ResponseObject extends JSONObject {
 		}
 		request.setEntity(body);
 
-		HttpClient client = new DefaultHttpClient();
 		HttpResponse response;
 		try {
-			response = client.execute(request);
+			response = HttpClientFactory.getThreadSafeClient().execute(request);
 			HttpEntity entity = response.getEntity();
 			if (response.getStatusLine().getStatusCode()!=HttpStatus.SC_OK) {
 				throw new CloudFoundryException(response.getStatusLine().getStatusCode(),response.getStatusLine().getReasonPhrase());
@@ -259,8 +276,7 @@ public class ResponseObject extends JSONObject {
 			}
 		}
 		try {
-			HttpClient client = new DefaultHttpClient();
-			HttpResponse response = client.execute(request);	
+			HttpResponse response = HttpClientFactory.getThreadSafeClient().execute(request);	
 			int returnCode = response.getStatusLine().getStatusCode();
 			if ((returnCode!=HttpStatus.SC_OK)&&(returnCode!=HttpStatus.SC_PARTIAL_CONTENT)) {
 				throw new ClientProtocolException(response.getStatusLine().getReasonPhrase());
@@ -295,8 +311,7 @@ public class ResponseObject extends JSONObject {
 
 		request.setEntity(body);
 
-		HttpClient client = new DefaultHttpClient();
-		HttpResponse response = client.execute(request);	
+		HttpResponse response = HttpClientFactory.getThreadSafeClient().execute(request);	
 		HttpEntity entity = response.getEntity();
 		int returnCode = response.getStatusLine().getStatusCode();
 		if (returnCode!=HttpStatus.SC_CREATED) {
@@ -325,7 +340,7 @@ public class ResponseObject extends JSONObject {
 		catch (Throwable e) {
 			throw new CloudFoundryException(HttpStatus.SC_BAD_REQUEST, "URI Error",e.getMessage());
 		} 
-		log.info("Posting to "+request.getURI());
+		log.fine("Posting to "+request.getURI());
 		request.setHeader("Content-Type", "application/x-www-form-urlencoded");
 		request.setHeader("Accept", "application/json;charset=utf-8");
 		request.setHeader("Authorization", "bearer "+oauth2AccessToken.getString(OAuth2AccessToken.Fields.access_token.name()));
@@ -336,8 +351,7 @@ public class ResponseObject extends JSONObject {
 		}
 		request.setEntity(body);
 		try {
-			HttpClient client = new DefaultHttpClient();
-			HttpResponse response = client.execute(request);	
+			HttpResponse response = HttpClientFactory.getThreadSafeClient().execute(request);	
 			HttpEntity entity = response.getEntity();
 			if (response.getStatusLine().getStatusCode()!=HttpStatus.SC_OK) {
 				throw new ClientProtocolException(response.getStatusLine().getReasonPhrase());
@@ -415,5 +429,5 @@ public class ResponseObject extends JSONObject {
 		//		restTemplate.put(authorizationUrl + "/User/{id}/password", httpEntity, userId);
 
 	}
-
+	
 }

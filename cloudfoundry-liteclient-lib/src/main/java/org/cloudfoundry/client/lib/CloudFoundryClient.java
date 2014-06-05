@@ -36,8 +36,6 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URL;
-import java.net.URLDecoder;
-import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
@@ -54,6 +52,7 @@ import org.apache.http.HttpStatus;
 import org.cloudfoundry.client.compat.OAuth2AccessToken;
 import org.cloudfoundry.client.compat.ResponseObject;
 import org.cloudfoundry.client.compat.util.Assert;
+import org.cloudfoundry.client.compat.util.Utils;
 //import org.cloudfoundry.client.ibmlib.util.Assert;
 //import org.cloudfoundry.client.ibmlib.ResponseErrorHandler;
 //import org.cloudfoundry.client.lib.archive.ApplicationArchive;
@@ -77,7 +76,6 @@ import org.cloudfoundry.client.lib.domain.InstancesInfo;
 import org.cloudfoundry.client.lib.domain.Staging;
 import org.cloudfoundry.client.lib.util.CloudEntityResourceMapper;
 import org.cloudfoundry.client.lib.util.JsonUtil;
-import org.json.JSONArray;
 import org.json.JSONObject;
 
 /**
@@ -704,7 +702,7 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 				// if there are headers in the response, null otherwise.
 				JSONObject headers = ro.getJSONObject("headers");
 				if (headers.has("x-app-staging-log")) {
-					return new StartingInfo(URLDecoder.decode(headers.getString("x-app-staging-log"), "UTF-8"));
+					return new StartingInfo(Utils.safeDecode(headers.getString("x-app-staging-log")));
 				}
 				else {
 					return new StartingInfo(null);
@@ -793,7 +791,7 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 		//			urlVars.put("space", sessionSpace.getMeta().getGuid());
 		//			urlPath = urlPath + "/spaces/{space}";
 		//		}
-		urlPath = urlPath + "/service_instances?q="+URLEncoder.encode("name:" + cloudService.getName());
+		urlPath = urlPath + "/service_instances?q="+Utils.safeEncode("name:" + cloudService.getName());
 		List<JSONObject> resourceList = ResponseObject.getResources(urlPath, token);
 		for (JSONObject resource : resourceList) {
 			List<JSONObject> service_bindings = ResponseObject.getResources(resource.getJSONObject(ENTITY).getString("service_bindings_url"), token);
@@ -966,7 +964,7 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 	public StreamingLogToken streamLogs(String appName, ApplicationLogListener listener) throws CloudFoundryException {	        
 	        UUID appId = getAppId(appName);
 	        CloudInfo cloudInfo = getCloudInfo();
-	        log.info("Streamlogs :"+cloudInfo.getLoggregatorEndpoint());
+	        log.info("Streamlogs :"+cloudInfo.getLoggregatorEndpoint()+" "+appId);
 //	        String mode = recent ? "dump" : "tail";
 //	        URI loggregatorUri = loggregatorUriTemplate.expand(cloudInfo.getLoggregatorEndpoint(), mode, appId);
 //	        try {
@@ -1030,6 +1028,7 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 				HashMap<String, Object> logsRequest = new HashMap<String, Object>();
 				logsRequest.put("offset", offset);
 				String ro = ResponseObject.getResponsObjectAsString(stagingFile + "&tail&tail_offset="+offset, token);
+				return ro;
 			} catch (CloudFoundryException e) {
 				if (e.getStatusCode()==HttpStatus.SC_NOT_FOUND) {
 					// Content is no longer available
@@ -1300,7 +1299,7 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 	}
 
 	public CloudStack getStack(String name) throws CloudFoundryException {
-		String urlOffset = "/v2/stacks?q="+URLEncoder.encode("name:" + name);
+		String urlOffset = "/v2/stacks?q="+Utils.safeEncode("name:" + name);
 		List<JSONObject> resourceList = ResponseObject.getResources(urlOffset, token);
 		if (resourceList.size()>0) {
 			JSONObject resource = resourceList.get(0);
@@ -1326,7 +1325,7 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 		return doGetDomains("/v2/shared_domains");
 	}
 
-	private List<CloudDomain> doGetDomains(CloudOrganization org) throws CloudFoundryException {
+	public List<CloudDomain> doGetDomains(CloudOrganization org) throws CloudFoundryException {
 		Map<String, Object> urlVars = new HashMap<String, Object>();
 		String urlPath = "/v2";
 		if (org != null) {
@@ -1451,12 +1450,12 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 		//				routes.add(resourceMapper.mapResource(route, CloudRoute.class));
 		//			}
 		//		}
-		log.severe(NYI);
+		log.severe(NYI+" "+urlPath+" "+domainGuid);
 		return routes;
 	}
 
 	private UUID getDomainGuid(String domainName, boolean required) {
-		String urlPath = "/v2/domains?inline-relations-depth=1&q=name:"+URLEncoder.encode(domainName);
+		String urlPath = "/v2/domains?inline-relations-depth=1&q=name:"+Utils.safeEncode(domainName);
 		UUID domainGuid = null;
 		try {
 			List<JSONObject> ja = ResponseObject.getResources(urlPath, token);

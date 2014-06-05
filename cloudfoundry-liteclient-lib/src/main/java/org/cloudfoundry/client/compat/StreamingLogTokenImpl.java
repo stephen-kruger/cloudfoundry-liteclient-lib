@@ -1,12 +1,11 @@
 package org.cloudfoundry.client.compat;
 
 import java.util.Timer;
-import java.util.TimerTask;
 
 import org.cloudfoundry.client.lib.StreamingLogToken;
 
 public class StreamingLogTokenImpl implements StreamingLogToken {
-    private static long keepAliveTime = 25000; // 25 seconds to match the go client
+//    private static long keepAliveTime = 25000; // 25 seconds to match the go client
     
     private Timer keepAliveTimer = new Timer(true);
 
@@ -22,14 +21,14 @@ public class StreamingLogTokenImpl implements StreamingLogToken {
         keepAliveTimer.cancel();
     }
 
-    private class KeepAliveTimerTask extends TimerTask {
-        @Override
-        public void run() {
+//    private class KeepAliveTimerTask extends TimerTask {
+//        @Override
+//        public void run() {
 //            if (session.isOpen()) {
 //                session.getAsyncRemote().sendText("keep alive");
 //            } else {
 //                keepAliveTimer.cancel();
 //            }
-        }
-    }
+//        }
+//    }
 }

@@ -2,7 +2,6 @@ package org.cloudfoundry.client.compat;
 
 import java.io.InputStream;
 import java.net.URL;
-import java.net.URLEncoder;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.Logger;
@@ -10,6 +9,7 @@ import java.util.logging.Logger;
 import org.apache.http.HttpStatus;
 import org.apache.http.entity.StringEntity;
 import org.cloudfoundry.client.compat.util.Assert;
+import org.cloudfoundry.client.compat.util.Utils;
 import org.cloudfoundry.client.lib.CloudCredentials;
 import org.cloudfoundry.client.lib.CloudFoundryException;
 import org.cloudfoundry.client.lib.domain.CloudInfo;
@@ -49,7 +49,7 @@ public class OAuth2AccessToken extends ResponseObject {
 		Map<String,String> headers = new HashMap<String,String>();
 		headers.put("Authorization", "Basic Y2Y6");
 		try {
-			StringEntity body = new StringEntity("grant_type=password&username="+URLEncoder.encode(credentials.getEmail())+"&password="+URLEncoder.encode(credentials.getPassword()));
+			StringEntity body = new StringEntity("grant_type=password&username="+Utils.safeEncode(credentials.getEmail())+"&password="+Utils.safeEncode(credentials.getPassword()));
 			JSONObject ro = ResponseObject.postResponsObject(new URL(info.getAuthorizationEndpoint()+"/oauth/token").toURI(),headers,body);
 			return new OAuth2AccessToken(ro, targetUrl);
 		}

@@ -21,7 +21,7 @@ public class SocketDestHelper {
 
 	private static final Set<String> installedRules = Collections.synchronizedSet(new HashSet<String>());
 	private static final AtomicBoolean isActivated = new AtomicBoolean(false);
-
+	private static boolean debug = false;
 
 	//Byteman API
 
@@ -113,17 +113,23 @@ public class SocketDestHelper {
 	}
 	private static void logDebugTrace(String msg) {
 		//until cloud-foundry-client-lib embed a logging library (slf4j ?), for debugging tests just change this flag
-		if (false) {
+		if (getDebug()) {
 			System.out.println(msg);
 			System.out.flush();
 		}
 	}
 
 	private static void printStackTrace(IOException ioe) {
-		if (false) {
+		if (getDebug()) {
 			ioe.printStackTrace();
 		}
 	}
 
+	public static void setDebug(boolean d) {
+		debug = d;
+	}
 
+	public static boolean getDebug() {
+		return debug;
+	}
 }
