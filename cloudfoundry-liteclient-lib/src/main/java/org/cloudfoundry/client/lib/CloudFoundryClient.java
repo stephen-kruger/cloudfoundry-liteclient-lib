@@ -86,12 +86,14 @@ import org.json.JSONObject;
  * @author Jennifer Hickey
  * @author Dave Syer
  * @author Thomas Risberg
+ * @author Stephen Kruger
  */
 public class CloudFoundryClient implements CloudFoundryOperations {
 	public static final String METADATA="metadata";
 	public static final String ENTITY="entity";
 	private static Logger log = Logger.getAnonymousLogger();
 	private static final String NYI = "NOT YET IMPLEMENTED";
+	private static final String API_BASE = "/v2";
 
 	private CloudInfo info;
 	private CloudCredentials credentials;
@@ -235,7 +237,7 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 			}
 			else {
 				JSONObject v1_info = ResponseObject.getResponsObject("/info", token);
-				JSONObject v2_info = ResponseObject.getResponsObject("/v2/info", token);
+				JSONObject v2_info = ResponseObject.getResponsObject(API_BASE+"/info", token);
 				info = new CloudInfo(v1_info, v2_info);
 			}
 		}
@@ -244,7 +246,7 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 
 	public List<CloudSpace> getSpaces() {
 		List<CloudSpace> spaces = new ArrayList<CloudSpace>();
-		String urlPath = "/v2/spaces?inline-relations-depth=1";
+		String urlPath = API_BASE+"/spaces?inline-relations-depth=1";
 		try {
 			List<JSONObject> jspaces = ResponseObject.getResources(urlPath, token);
 			for (JSONObject jspace : jspaces) {
@@ -265,7 +267,7 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 	}
 
 	public List<CloudOrganization> getOrganizations() {
-		String urlPath = "/v2/organizations?inline-relations-depth=0";
+		String urlPath = API_BASE+"/organizations?inline-relations-depth=0";
 		List<CloudOrganization> orgs = new ArrayList<CloudOrganization>();
 		try {
 			List<JSONObject>entities = ResponseObject.getResources(urlPath, token);
@@ -322,7 +324,7 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 	public List<CloudApplication> getApplications() throws CloudFoundryException {
 		if (applications==null) {
 			applications = new ArrayList<CloudApplication>();
-			List<JSONObject> ja = ResponseObject.getResources("/v2/apps?inline-relations-depth=1", token);
+			List<JSONObject> ja = ResponseObject.getResources(API_BASE+"/apps?inline-relations-depth=1", token);
 			for (JSONObject resource : ja) {
 				CloudApplication app = new CloudApplication(token,resource.getJSONObject(ENTITY),resource.getJSONObject(METADATA));
 				applications.add(app);
@@ -335,7 +337,7 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 	}
 
 	private List<String> findApplicationUris(UUID appGuid) {
-		String urlPath = "/v2/apps/"+appGuid.toString()+"/routes?inline-relations-depth=1";
+		String urlPath = API_BASE+"/apps/"+appGuid.toString()+"/routes?inline-relations-depth=1";
 		List<String> uris =  new ArrayList<String>();
 
 		try {
@@ -397,7 +399,7 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 	}
 
 	private JSONObject getInstanceInfoForApp(UUID appId, String path) throws CloudFoundryException {
-		String urlOffset = "/v2/apps/"+appId.toString()+"/" + path;
+		String urlOffset = API_BASE+"/apps/"+appId.toString()+"/" + path;
 		return ResponseObject.getResponsObject(urlOffset, token);
 	}
 
@@ -419,7 +421,7 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 		addStagingToRequest(staging, appRequest);
 		appRequest.put("state", CloudApplication.AppState.STOPPED.name());
 
-		String appResp = postForObject("/v2/apps", appRequest);
+		String appResp = postForObject(API_BASE+"/apps", appRequest);
 		try {
 			Map<String, Object> appEntity = JsonUtil.convertJsonToMap(appResp);
 			UUID newAppGuid = CloudEntityResourceMapper.getMeta(appEntity).getGuid();
@@ -448,7 +450,7 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 	}
 
 	private UUID getRouteGuid(String host, UUID domainGuid) {
-		String urlPath = "/v2/routes?inline-relations-depth=0&q=host:"+host;
+		String urlPath = API_BASE+"/routes?inline-relations-depth=0&q=host:"+host;
 
 		UUID routeGuid = null;
 		try {
@@ -493,7 +495,7 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 		if (routeGuid == null) {
 			routeGuid = doAddRoute(host, domainGuid);
 		}
-		String bindPath = "/v2/apps/"+appGuid+"/routes/"+routeGuid;
+		String bindPath = API_BASE+"/apps/"+appGuid+"/routes/"+routeGuid;
 		HashMap<String, Object> bindRequest = new HashMap<String, Object>();
 		putForObject(bindPath, bindRequest);
 	}
@@ -505,7 +507,7 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 		routeRequest.put("host", host);
 		routeRequest.put("domain_guid", domainGuid);
 		routeRequest.put("space_guid", sessionSpace.getMeta().getGuid());
-		String routeResp = postForObject("/v2/routes", routeRequest);
+		String routeResp = postForObject(API_BASE+"/routes", routeRequest);
 		try {
 			Map<String, Object> routeEntity = JsonUtil.convertJsonToMap(routeResp);
 			return CloudEntityResourceMapper.getMeta(routeEntity).getGuid();
@@ -524,14 +526,9 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 			return null;
 		}
 	}
-	
+
 	private Map<String, String> headForObject(String urlOffset, Map<String, String> headers, int expect) throws CloudFoundryException {
-		try {
-			return ResponseObject.headResponsObject(urlOffset, token, headers,expect);
-		} catch (Throwable e) {
-			e.printStackTrace();
-			return null;
-		}
+		return ResponseObject.headResponsObject(urlOffset, token, headers,expect);
 	}
 
 	private void deleteForObject(String urlOffset) throws CloudFoundryException {
@@ -574,7 +571,7 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 
 	private Map<String, UUID> getDomainGuids() {
 		Map<String, Object> urlVars = new HashMap<String, Object>();
-		String urlPath = "/v2";
+		String urlPath = API_BASE+"";
 		if (sessionSpace != null) {
 			urlVars.put("space", sessionSpace.getMeta().getGuid());
 			urlPath = urlPath + "/spaces/{space}";
@@ -605,7 +602,8 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 			appRequest.put("command", staging.getCommand());
 		}
 		if (staging.getStack() != null) {
-			appRequest.put("stack_guid", getStack(staging.getStack()).getMeta().getGuid().toString());
+			// getStack(staging.getStack()).getMeta().getGuid().toString()
+				appRequest.put("stack_guid", staging.getStack().getMeta().getGuid());
 		}
 		if (staging.getHealthCheckTimeout() != null) {
 			appRequest.put("health_check_timeout", staging.getHealthCheckTimeout().toString());
@@ -625,12 +623,12 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 		serviceRequest.put("space_guid", sessionSpace.getMeta().getGuid());
 		serviceRequest.put("name", service.getName());
 		serviceRequest.put("service_plan_guid", cloudServicePlan.getMeta().getGuid());
-		postForObject("/v2/service_instances", serviceRequest);
+		postForObject(API_BASE+"/service_instances", serviceRequest);
 	}
 
 	private List<CloudServiceOffering> getServiceOfferings(String label) throws CloudFoundryException {
 		Assert.notNull(label, "Service label must not be null");
-		List<JSONObject> resourceList = ResponseObject.getResources("/v2/services?inline-relations-depth=1", token);
+		List<JSONObject> resourceList = ResponseObject.getResources(API_BASE+"/services?inline-relations-depth=1", token);
 		List<CloudServiceOffering> results = new ArrayList<CloudServiceOffering>();
 		for (JSONObject resource : resourceList) {
 			CloudServiceOffering cloudServiceOffering = new CloudServiceOffering(resource.getJSONObject(METADATA),resource.getJSONObject(ENTITY));
@@ -689,7 +687,7 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 			HashMap<String, Object> appRequest = new HashMap<String, Object>();
 			appRequest.put("state", CloudApplication.AppState.STARTED);
 			try {
-				ResponseObject ro = ResponseObject.putResponsObject("/v2/apps/"+app.getMeta().getGuid()+"?stage_async=true", token, null, appRequest);
+				ResponseObject ro = ResponseObject.putResponsObject(API_BASE+"/apps/"+app.getMeta().getGuid()+"?stage_async=true", token, null, appRequest);
 
 				// now update cached services object with new values
 				//				CloudApplication newApp = new CloudApplication(token,ro.getJSONObject(ENTITY),ro.getJSONObject(METADATA));
@@ -729,7 +727,7 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 		if (app.getState() != CloudApplication.AppState.STOPPED) {
 			HashMap<String, Object> appRequest = new HashMap<String, Object>();
 			appRequest.put("state", CloudApplication.AppState.STOPPED);
-			String urlOffset = "/v2/apps/"+app.getMeta().getGuid().toString();
+			String urlOffset = API_BASE+"/apps/"+app.getMeta().getGuid().toString();
 			try {
 				ResponseObject ro = ResponseObject.putResponsObject(urlOffset, token, null, appRequest);
 				// now update cached services object with new values
@@ -757,7 +755,7 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 	}
 
 	private void doDeleteApplication(UUID appId) throws CloudFoundryException {
-		deleteForObject("/v2/apps/"+appId.toString()+"?recursive=true");
+		deleteForObject(API_BASE+"/apps/"+appId.toString()+"?recursive=true");
 	}
 
 	public void deleteAllApplications() throws CloudFoundryException {
@@ -781,12 +779,12 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 				doUnbindService(appId, cloudService.getMeta().getGuid());
 			}
 		}
-		deleteForObject("/v2/service_instances/"+cloudService.getMeta().getGuid().toString());
+		deleteForObject(API_BASE+"/service_instances/"+cloudService.getMeta().getGuid().toString());
 	}
 
 	private List<UUID> getAppsBoundToService(CloudService cloudService) throws CloudFoundryException {
 		List<UUID> appGuids = new ArrayList<UUID>();
-		String urlPath = "/v2";
+		String urlPath = API_BASE+"";
 		//		if (sessionSpace != null) {
 		//			urlVars.put("space", sessionSpace.getMeta().getGuid());
 		//			urlPath = urlPath + "/spaces/{space}";
@@ -824,7 +822,7 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 		UUID appId = getAppId(appName);
 		HashMap<String, Object> appRequest = new HashMap<String, Object>();
 		appRequest.put("disk_quota", disk);
-		String result = putForObject("/v2/apps/"+appId.toString(), appRequest);
+		String result = putForObject(API_BASE+"/apps/"+appId.toString(), appRequest);
 		log.info(result);
 	}
 
@@ -832,7 +830,7 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 		UUID appId = getAppId(appName);
 		HashMap<String, Object> appRequest = new HashMap<String, Object>();
 		appRequest.put("memory", memory);
-		String result = putForObject("/v2/apps/"+appId.toString(), appRequest);
+		String result = putForObject(API_BASE+"/apps/"+appId.toString(), appRequest);
 		log.info(result);
 	}
 
@@ -840,7 +838,7 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 		UUID appId = getAppId(appName);
 		HashMap<String, Object> appRequest = new HashMap<String, Object>();
 		appRequest.put("instances", instances);
-		String result = putForObject("/v2/apps/"+appId.toString(), appRequest);
+		String result = putForObject(API_BASE+"/apps/"+appId.toString(), appRequest);
 		log.info(result);
 	}
 
@@ -882,16 +880,16 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 		HashMap<String, Object> serviceRequest = new HashMap<String, Object>();
 		serviceRequest.put("service_instance_guid", serviceId);
 		serviceRequest.put("app_guid", appId);
-		postForObject("/v2/service_bindings", serviceRequest);
+		postForObject(API_BASE+"/service_bindings", serviceRequest);
 	}
 
 	private void doUnbindService(UUID appId, UUID serviceId) throws CloudFoundryException {
 		UUID serviceBindingId = getServiceBindingId(appId, serviceId);
-		deleteForObject("/v2/service_bindings/"+serviceBindingId.toString());
+		deleteForObject(API_BASE+"/service_bindings/"+serviceBindingId.toString());
 	}
 
 	private UUID getServiceBindingId(UUID appId, UUID serviceId ) throws CloudFoundryException {
-		List<JSONObject> resourceList = ResponseObject.getResources("/v2/apps/"+appId.toString()+"/service_bindings", token);
+		List<JSONObject> resourceList = ResponseObject.getResources(API_BASE+"/apps/"+appId.toString()+"/service_bindings", token);
 		UUID serviceBindingId = null;
 		for (JSONObject resource : resourceList) {
 			JSONObject bindingMeta = resource.getJSONObject(METADATA);
@@ -910,7 +908,7 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 		UUID appId = getAppId(appName);
 		HashMap<String, Object> appRequest = new HashMap<String, Object>();
 		addStagingToRequest(staging, appRequest);
-		putForObject("/v2/apps/"+appId.toString(), appRequest);
+		putForObject(API_BASE+"/apps/"+appId.toString(), appRequest);
 	}
 
 	public void updateApplicationUris(String appName, List<String> uris) throws CloudFoundryException {
@@ -936,7 +934,7 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 	private void unbindRoute(String host, UUID domainGuid, UUID appGuid) throws CloudFoundryException {
 		UUID routeGuid = getRouteGuid(host, domainGuid);
 		if (routeGuid != null) {
-			String bindPath = "/v2/apps/"+appGuid+"/routes/"+routeGuid.toString();
+			String bindPath = API_BASE+"/apps/"+appGuid+"/routes/"+routeGuid.toString();
 			deleteForObject(bindPath);
 		}
 	}
@@ -945,41 +943,41 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 		UUID appId = getAppId(appName);
 		HashMap<String, Object> appRequest = new HashMap<String, Object>();
 		appRequest.put("environment_json", env);
-		putForObject("/v2/apps/"+appId.toString(), appRequest);
+		putForObject(API_BASE+"/apps/"+appId.toString(), appRequest);
 	}
 
 	public void updateApplicationEnv(String appName, List<String> env) throws CloudFoundryException {
 		UUID appId = getAppId(appName);
 		HashMap<String, Object> appRequest = new HashMap<String, Object>();
 		appRequest.put("environment_json", env);
-		putForObject("/v2/apps/"+appId.toString(), appRequest);
+		putForObject(API_BASE+"/apps/"+appId.toString(), appRequest);
 	}
 
 	public Map<String, String> getLogs(String appName) throws CloudFoundryException {
-		String urlPath = "/v2/apps/"+getAppId(appName)+"/instances/0/files";
+		String urlPath = API_BASE+"/apps/"+getAppId(appName)+"/instances/0/files";
 		String instance = String.valueOf(0);
 		return doGetLogs(urlPath, appName, instance);
 	}
 
 	public StreamingLogToken streamLogs(String appName, ApplicationLogListener listener) throws CloudFoundryException {	        
-	        UUID appId = getAppId(appName);
-	        CloudInfo cloudInfo = getCloudInfo();
-	        log.info("Streamlogs :"+cloudInfo.getLoggregatorEndpoint()+" "+appId);
-//	        String mode = recent ? "dump" : "tail";
-//	        URI loggregatorUri = loggregatorUriTemplate.expand(cloudInfo.getLoggregatorEndpoint(), mode, appId);
-//	        try {
-//	            WebSocketContainer container = ContainerProvider.getWebSocketContainer();
-//	            ClientEndpointConfig config = ClientEndpointConfig.Builder.create().configurator(configurator).build();
-//	            Session session = container.connectToServer(new LoggregatorEndpoint(listener), config, loggregatorUri);
-//	            return new StreamingLogTokenImpl(session);
-//	        } 
-//	        catch (DeploymentException e) {
-//	            throw new CloudOperationException(e);
-//	        } 
-//	        catch (IOException e) {
-//	            throw new CloudOperationException(e);
-//	        }
-	        return null;
+		UUID appId = getAppId(appName);
+		CloudInfo cloudInfo = getCloudInfo();
+		log.info("Streamlogs :"+cloudInfo.getLoggregatorEndpoint()+" "+appId);
+		//	        String mode = recent ? "dump" : "tail";
+		//	        URI loggregatorUri = loggregatorUriTemplate.expand(cloudInfo.getLoggregatorEndpoint(), mode, appId);
+		//	        try {
+		//	            WebSocketContainer container = ContainerProvider.getWebSocketContainer();
+		//	            ClientEndpointConfig config = ClientEndpointConfig.Builder.create().configurator(configurator).build();
+		//	            Session session = container.connectToServer(new LoggregatorEndpoint(listener), config, loggregatorUri);
+		//	            return new StreamingLogTokenImpl(session);
+		//	        } 
+		//	        catch (DeploymentException e) {
+		//	            throw new CloudOperationException(e);
+		//	        } 
+		//	        catch (IOException e) {
+		//	            throw new CloudOperationException(e);
+		//	        }
+		return null;
 	}
 
 	//    public StreamingLogToken streamRecentLogs(String appName, ApplicationLogListener listener) {
@@ -1047,7 +1045,7 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 	}
 
 	protected String getFileUrlPath(int instanceIndex, String filePath) {
-		return "/v2/apps/{appId}/instances/"+instanceIndex+"/files/"+filePath;
+		return API_BASE+"/apps/{appId}/instances/"+instanceIndex+"/files/"+filePath;
 	}
 
 	protected String doGetFile(String urlPath, Object app, int instanceIndex, String filePath, int startPosition, int endPosition) throws CloudFoundryException {
@@ -1076,49 +1074,57 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 
 	private String doGetFileByRange(String urlPath, Object app, String instance, String filePath, int start, int end, String range) throws CloudFoundryException {
 
-				boolean supportsRanges;
-					Map<String,String>headers = new HashMap<String,String>();
-					headers.put("Range", "bytes=0-");
-					try {
-						headForObject(urlPath+"/"+filePath,headers,HttpStatus.SC_OK);
-						supportsRanges = true;
-					}
-					catch (CloudFoundryException e) {
-						supportsRanges = false;
-					}
+		boolean supportsRanges;
+		Map<String,String>headers = new HashMap<String,String>();
+		headers.put("Range", "bytes=0-");
+		try {
+			headForObject(urlPath+"/"+filePath,headers,HttpStatus.SC_OK);
+			supportsRanges = true;
+		}
+		catch (CloudFoundryException e) {
+			supportsRanges = false;
+		}
 
-				headers = new HashMap<String,String>();
-				if (supportsRanges) {
-					headers.put("Range", range);
-				}
-				String response = ResponseObject.getResponsObjectAsString(urlPath+"/"+filePath, token, headers);
-				
-				boolean partialFile = false;
-//				if (response.getInt("status")!=HttpStatus.SC_PARTIAL_CONTENT) {
-					partialFile = true;
-//				}
-				if (!partialFile && response != null) {
-					if (start == -1) {
-						return response.toString().substring(response.length() - end);
+
+		headers = new HashMap<String,String>();
+		if (supportsRanges) {
+			headers.put("Range", range);
+		}
+
+		try {
+			String response = ResponseObject.getResponsObjectAsString(urlPath+"/"+filePath, token, headers);
+
+			boolean partialFile = false;
+			//				if (response.getInt("status")!=HttpStatus.SC_PARTIAL_CONTENT) {
+			partialFile = true;
+			//				}
+			if (!partialFile && response != null) {
+				if (start == -1) {
+					return response.toString().substring(response.length() - end);
+				} else {
+					if (start >= response.length()) {
+						if (response.length() == 0) {
+							return "";
+						}
+						throw new CloudFoundryException(HttpStatus.SC_REQUESTED_RANGE_NOT_SATISFIABLE,
+								"The starting position " + start + " is past the end of the file content.");
+					}
+					if (end != -1) {
+						if (end >= response.length()) {
+							end = response.length() - 1;
+						}
+						return response.toString().substring(start, end + 1);
 					} else {
-						if (start >= response.length()) {
-							if (response.length() == 0) {
-								return "";
-							}
-							throw new CloudFoundryException(HttpStatus.SC_REQUESTED_RANGE_NOT_SATISFIABLE,
-									"The starting position " + start + " is past the end of the file content.");
-						}
-						if (end != -1) {
-							if (end >= response.length()) {
-								end = response.length() - 1;
-							}
-							return response.toString().substring(start, end + 1);
-						} else {
-							return response.toString().substring(start);
-						}
+						return response.toString().substring(start);
 					}
 				}
-				return response.toString();
+			}
+			return response.toString();
+		}
+		catch (CloudFoundryException cfe) {
+			//cfe.printStackTrace();
+			return "";
+		}
 	}
 
 	protected Object getFileAppId(String appName) throws CloudFoundryException {
@@ -1158,7 +1164,7 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 		if (services==null) {
 			services = new ArrayList<CloudService>();
 			//		Map<String, Object> urlVars = new HashMap<String, Object>();
-			String urlPath = "/v2";
+			String urlPath = API_BASE+"";
 			//		if (sessionSpace != null) {
 			//			urlVars.put("space", sessionSpace.getMeta().getGuid());
 			//			urlPath = urlPath + "/spaces/{space}";
@@ -1197,7 +1203,7 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 		//	}
 
 		//		try {
-		//			String urlPath = "/v2/service_instances?q="+"name:" + URLEncoder.encode(serviceName,"UTF-9")+"&return_user_provided_service_instances=true";
+		//			String urlPath = API_BASE+"/service_instances?q="+"name:" + URLEncoder.encode(serviceName,"UTF-9")+"&return_user_provided_service_instances=true";
 		//			JSONArray resources = ResponseObject.getResources(urlPath, token);
 		//			for (int i=0; i < resources.length();i++) {
 		//				CloudService service = new CloudService(new Meta(resources.getJSONObject(0).getJSONObject(METADATA)),
@@ -1221,11 +1227,15 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 	}
 
 	public List<CloudServiceOffering> getServiceOfferings() throws CloudFoundryException {
-		String urlOffset = "/v2/services?inline-relations-depth=1";
+		String urlOffset = API_BASE+"/services?inline-relations-depth=1";
 		List<JSONObject> resourceList = ResponseObject.getResources(urlOffset, token);
 		List<CloudServiceOffering> serviceOfferings = new ArrayList<CloudServiceOffering>();
 
 		for (JSONObject resource : resourceList) {
+			//			System.out.println("meta");
+			//			System.out.println(resource.getJSONObject(METADATA).toString(3));
+			//			System.out.println("entity");
+			//			System.out.println(resource.getJSONObject(ENTITY).toString(3));
 			CloudServiceOffering serviceOffering = new CloudServiceOffering(resource.getJSONObject(METADATA), resource.getJSONObject(ENTITY));
 			serviceOfferings.add(serviceOffering);
 		}
@@ -1289,7 +1299,7 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 	}
 
 	public List<CloudStack> getStacks() throws CloudFoundryException {
-		String urlOffset = "/v2/stacks";
+		String urlOffset = API_BASE+"/stacks";
 		List<JSONObject> resourceList = ResponseObject.getResources(urlOffset, token);
 		List<CloudStack> stacks = new ArrayList<CloudStack>();
 		for (JSONObject resource : resourceList) {
@@ -1299,7 +1309,7 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 	}
 
 	public CloudStack getStack(String name) throws CloudFoundryException {
-		String urlOffset = "/v2/stacks?q="+Utils.safeEncode("name:" + name);
+		String urlOffset = API_BASE+"/stacks?q="+Utils.safeEncode("name:" + name);
 		List<JSONObject> resourceList = ResponseObject.getResources(urlOffset, token);
 		if (resourceList.size()>0) {
 			JSONObject resource = resourceList.get(0);
@@ -1312,22 +1322,22 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 		UUID appId = getAppId(appName);
 		HashMap<String, Object> appRequest = new HashMap<String, Object>();
 		appRequest.put("name", newName);
-		putForObject("/v2/apps/"+appId.toString(), appRequest);
+		putForObject(API_BASE+"/apps/"+appId.toString(), appRequest);
 	}
 
 
 
 	public List<CloudDomain> getPrivateDomains() throws CloudFoundryException {
-		return doGetDomains("/v2/private_domains");
+		return doGetDomains(API_BASE+"/private_domains");
 	}
 
 	public List<CloudDomain> getSharedDomains() throws CloudFoundryException {
-		return doGetDomains("/v2/shared_domains");
+		return doGetDomains(API_BASE+"/shared_domains");
 	}
 
 	public List<CloudDomain> doGetDomains(CloudOrganization org) throws CloudFoundryException {
 		Map<String, Object> urlVars = new HashMap<String, Object>();
-		String urlPath = "/v2";
+		String urlPath = API_BASE+"";
 		if (org != null) {
 			urlVars.put("org", org.getMeta().getGuid());
 			urlPath = urlPath + "/organizations/{org}";
@@ -1363,7 +1373,7 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 
 	public List<CloudDomain> getDomainsForOrg(CloudOrganization org) {
 		List<CloudDomain> domains = new ArrayList<CloudDomain>();
-		String urlPath = "/v2/organizations/"+org.getMeta().getGuid().toString()+"/domains";
+		String urlPath = API_BASE+"/organizations/"+org.getMeta().getGuid().toString()+"/domains";
 		try {
 			List<JSONObject> ja = ResponseObject.getResources(urlPath, token);
 			for (JSONObject resource : ja) {
@@ -1394,7 +1404,7 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 	}
 
 	private UUID doCreateDomain(String domainName) throws CloudFoundryException {
-		String urlPath = "/v2/private_domains";
+		String urlPath = API_BASE+"/private_domains";
 		HashMap<String, Object> domainRequest = new HashMap<String, Object>();
 		domainRequest.put("owning_organization_guid", sessionSpace.getOrganization().getMeta().getGuid());
 		domainRequest.put("name", domainName);
@@ -1424,7 +1434,7 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 
 	private void doDeleteDomain(UUID domainGuid) throws CloudFoundryException {
 		Map<String, Object> urlVars = new HashMap<String, Object>();
-		String urlPath = "/v2/private_domains/"+domainGuid.toString();
+		String urlPath = API_BASE+"/private_domains/"+domainGuid.toString();
 		urlVars.put("domain", domainGuid);
 		deleteForObject(urlPath);
 	}
@@ -1436,7 +1446,7 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 
 	public List<CloudRoute> getRoutes(String domainName) {
 		UUID domainGuid = getDomainGuid(domainName, true);
-		String urlPath = "/v2/routes?inline-relations-depth=1";
+		String urlPath = API_BASE+"/routes?inline-relations-depth=1";
 		List<CloudRoute> routes = new ArrayList<CloudRoute>();
 		// tbd
 
@@ -1455,7 +1465,7 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 	}
 
 	private UUID getDomainGuid(String domainName, boolean required) {
-		String urlPath = "/v2/domains?inline-relations-depth=1&q=name:"+Utils.safeEncode(domainName);
+		String urlPath = API_BASE+"/domains?inline-relations-depth=1&q=name:"+Utils.safeEncode(domainName);
 		UUID domainGuid = null;
 		try {
 			List<JSONObject> ja = ResponseObject.getResources(urlPath, token);
@@ -1490,7 +1500,7 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 	}
 
 	private void doDeleteRoute(UUID routeGuid) throws CloudFoundryException {
-		String urlPath = "/v2/routes/"+routeGuid.toString();
+		String urlPath = API_BASE+"/routes/"+routeGuid.toString();
 		deleteForObject(urlPath);
 	}
 

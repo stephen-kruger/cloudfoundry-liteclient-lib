@@ -24,7 +24,9 @@ import org.cloudfoundry.client.lib.domain.CloudInfo;
 import org.cloudfoundry.client.lib.domain.CloudInfo.Limits;
 import org.cloudfoundry.client.lib.domain.CloudOrganization;
 import org.cloudfoundry.client.lib.domain.CloudService;
+import org.cloudfoundry.client.lib.domain.CloudServiceOffering;
 import org.cloudfoundry.client.lib.domain.CloudSpace;
+import org.cloudfoundry.client.lib.domain.Staging;
 import org.json.JSONException;
 
 public class ClientTest extends TestCase {
@@ -152,6 +154,19 @@ public class ClientTest extends TestCase {
 		// list the app
 		// delete the app
 	}
+	
+	public void testFrameworks() throws CloudFoundryException {	
+
+		List<CloudApplication> apps = cfc.getApplications();
+		assertTrue("No apps found",apps.size()>0);
+		log.info("Found "+apps.size()+" apps");
+		for (CloudApplication app : apps) {
+			Staging staging = app.getStaging();
+//			CloudStack stack = staging.getStack()
+			log.info(staging.toString());
+			assertNotNull(app.getStaging());
+		}
+	}
 
 	public void testServices() throws Throwable {
 		//		for (CloudOrganization c : cfc.getOrganizations()) {
@@ -190,10 +205,10 @@ public class ClientTest extends TestCase {
 		//		System.setProperty("https.proxySet", "true");
 
 		CloudCredentials credentials = new CloudCredentials(user, password);
-		CloudFoundryClient client = new CloudFoundryClient(credentials, getTargetURL(target));
-		client.login();
+//		CloudFoundryClient client = new CloudFoundryClient(credentials, getTargetURL(target));
+//		client.login();
 		System.out.printf("%nSpaces:%n");
-		for (CloudSpace space : client.getSpaces()) {
+		for (CloudSpace space : cfc.getSpaces()) {
 			System.out.printf("  name=%s\t org=(%s)%n", space.getName(), space.getOrganization().getName());
 		}
 
@@ -208,10 +223,19 @@ public class ClientTest extends TestCase {
 		//        }
 		//
 		System.out.printf("%nServices%n");
-		for (CloudService service : client.getServices()) {
+		for (CloudService service : cfc.getServices()) {
 			System.out.printf("  %s\t(%s)%n", service.getName(), service.getLabel());
 		}
 
+	}
+	
+	public void testServiceOfferings() throws CloudFoundryException {
+		List<CloudServiceOffering> offerings = cfc.getServiceOfferings();
+		for (CloudServiceOffering cso : offerings) {
+			log.info(cso.toString());
+			log.info(cso.getExtra().toString(3));
+			assertNotNull(cso.getProvider(),"Fix my code - provider should not be null");
+		}
 	}
 
 	private static URL getTargetURL(String target) {

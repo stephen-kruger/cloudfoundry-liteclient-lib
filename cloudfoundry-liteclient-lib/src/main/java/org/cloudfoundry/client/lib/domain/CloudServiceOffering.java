@@ -19,6 +19,7 @@ package org.cloudfoundry.client.lib.domain;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.cloudfoundry.client.compat.util.Utils;
 import org.json.JSONObject;
 
 public class CloudServiceOffering extends CloudEntity {
@@ -32,23 +33,24 @@ public class CloudServiceOffering extends CloudEntity {
 	private String url;
 	private String infoUrl;
 	private String uniqueId;
-	private String extra;
 	private String docUrl;
+	private CloudExtra extra;
 	
 	private List<CloudServicePlan> cloudServicePlans = new ArrayList<CloudServicePlan>();
 
 	public CloudServiceOffering(JSONObject meta, JSONObject entity) {
-		this(new Meta(meta),entity.getString("name"));
-		this.provider = entity.getString("provider");
-		this.version = entity.getString("version");
-		this.description = entity.getString("description");
+		this(new Meta(meta),Utils.safeGet(entity,"label"));
+		this.provider = Utils.safeGet(entity,"provider");
+		this.version = Utils.safeGet(entity,"version");
+		this.description = Utils.safeGet(entity,"description");
 		this.active = entity.getBoolean("active");
 		this.bindable = entity.getBoolean("bindable");
-		this.url = entity.getString("url");
-		this.infoUrl = entity.getString("infoUrl");
-		this.uniqueId = entity.getString("uniqueId");
-		this.extra = entity.getString("extra");
-		this.docUrl = entity.getString("docUrl");
+		this.url = Utils.safeGet(entity,"url");
+		this.infoUrl = Utils.safeGet(entity,"info_url");
+		this.uniqueId = Utils.safeGet(entity,"unique_id");
+
+		this.extra = new CloudExtra(Utils.safeGet(entity,"extra","{}"));
+		this.docUrl = Utils.safeGet(entity,"documentation_url");
 		
 	}
 	
@@ -64,7 +66,7 @@ public class CloudServiceOffering extends CloudEntity {
 
 	public CloudServiceOffering(Meta meta, String name, String provider, String version, 
 								String description, boolean active, boolean bindable,
-								String url, String infoUrl, String uniqueId, String extra,
+								String url, String infoUrl, String uniqueId, String extraStr,
 								String docUrl) {
 		super(meta, name);
 		this.provider = provider;
@@ -75,7 +77,7 @@ public class CloudServiceOffering extends CloudEntity {
 		this.url = url;
 		this.infoUrl = infoUrl;
 		this.uniqueId = uniqueId;
-		this.extra = extra;
+		this.extra = new CloudExtra(extraStr);
 		this.docUrl = docUrl;
 	}
 
@@ -115,7 +117,7 @@ public class CloudServiceOffering extends CloudEntity {
 		return uniqueId;
 	}
 
-	public String getExtra() {
+	public CloudExtra getExtra() {
 		return extra;
 	}
 

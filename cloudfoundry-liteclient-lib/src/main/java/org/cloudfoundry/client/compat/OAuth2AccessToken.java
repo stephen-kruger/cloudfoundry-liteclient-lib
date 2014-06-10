@@ -45,7 +45,7 @@ public class OAuth2AccessToken extends ResponseObject {
 	}
 
 	public static OAuth2AccessToken getLoginResponse(String targetUrl, CloudInfo info, CloudCredentials credentials) throws CloudFoundryException {
-		log.info("Requesting authentication token from "+targetUrl+"/oauth/token"+" with targetUrl="+targetUrl);	
+		log.info("Requesting authentication token from "+info.getAuthorizationEndpoint()+"/oauth/token");	
 		Map<String,String> headers = new HashMap<String,String>();
 		headers.put("Authorization", "Basic Y2Y6");
 		try {

@@ -28,7 +28,7 @@ package org.cloudfoundry.client.lib.domain;
 public class Staging {
 	private String command;
 	private String buildpackUrl;
-	private String stack;
+	private CloudStack stack;
 	private Integer healthCheckTimeout;
 
 	/**
@@ -55,7 +55,7 @@ public class Staging {
 	 * @param stack the stack to use when staging the application; may be null
 	 * @param healthCheckTimeout the amount of time the platform should wait when verifying that an app started; may be null
 	 */
-	public Staging(String command, String buildpackUrl, String stack, Integer healthCheckTimeout) {
+	public Staging(String command, String buildpackUrl, CloudStack stack, Integer healthCheckTimeout) {
 		this(command, buildpackUrl);
 		this.stack = stack;
 		this.healthCheckTimeout = healthCheckTimeout;
@@ -82,11 +82,11 @@ public class Staging {
 	 *
 	 * @return the stack to use when staging the application, or null to use the default stack
 	 */
-	public String getStack() {
+	public CloudStack getStack() {
 		return stack;
 	}
 	
-	public void setStack(String stack) {
+	public void setStack(CloudStack stack) {
 		this.stack = stack;
 	}
 

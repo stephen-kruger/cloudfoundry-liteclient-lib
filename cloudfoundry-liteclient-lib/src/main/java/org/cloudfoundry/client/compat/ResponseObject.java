@@ -208,7 +208,9 @@ public class ResponseObject extends JSONObject {
 			if ((response.getStatusLine().getStatusCode()!=HttpStatus.SC_OK)&&(response.getStatusLine().getStatusCode()!=HttpStatus.SC_PARTIAL_CONTENT)) {
 				throw new CloudFoundryException(response.getStatusLine().getStatusCode(), "Client Error",response.getStatusLine().getReasonPhrase());
 			}
-			return streamToString(entity.getContent());
+			else {
+				return streamToString(entity.getContent());
+			}
 		}
 		catch (IOException ioe) {
 			throw new CloudFoundryException(HttpStatus.SC_BAD_REQUEST, "IOException",ioe.getMessage());
@@ -279,7 +281,7 @@ public class ResponseObject extends JSONObject {
 			HttpResponse response = HttpClientFactory.getThreadSafeClient().execute(request);	
 			int returnCode = response.getStatusLine().getStatusCode();
 			if ((returnCode!=HttpStatus.SC_OK)&&(returnCode!=HttpStatus.SC_PARTIAL_CONTENT)) {
-				throw new ClientProtocolException(response.getStatusLine().getReasonPhrase());
+				throw new CloudFoundryException(response.getStatusLine().getStatusCode(),response.getStatusLine().getReasonPhrase());
 			}
 			// copy the headers into the response object in case caller needs them, some silly
 			// api contract thought this is a good way to communicate information.
@@ -291,7 +293,7 @@ public class ResponseObject extends JSONObject {
 			return headers;
 		}
 		catch (Throwable t) {
-			t.printStackTrace();
+//			t.printStackTrace();
 			throw new CloudFoundryException(HttpStatus.SC_BAD_REQUEST,t.getMessage());
 		}
 	}
@@ -429,5 +431,5 @@ public class ResponseObject extends JSONObject {
 		//		restTemplate.put(authorizationUrl + "/User/{id}/password", httpEntity, userId);
 
 	}
-	
+
 }

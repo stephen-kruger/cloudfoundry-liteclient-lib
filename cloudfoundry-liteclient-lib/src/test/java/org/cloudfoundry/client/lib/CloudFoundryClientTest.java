@@ -414,7 +414,7 @@ public class CloudFoundryClientTest {
 	@Test
 	public void createApplicationWithStack() throws IOException, CloudFoundryException {
 		String appName = namespacedAppName("stack");
-		createSpringApplication(appName, DEFAULT_STACK_NAME, null);
+		createSpringApplication(appName, new CloudStack(DEFAULT_STACK_NAME), null);
 
 		CloudApplication app = connectedClient.getApplication(appName);
 		assertNotNull(app);
@@ -1703,7 +1703,7 @@ public class CloudFoundryClientTest {
 		createTestApp(appName, null, new Staging(null, buildpackUrl));
 	}
 
-	private void createSpringApplication(String appName, String stack, Integer healthCheckTimeout) throws CloudFoundryException {
+	private void createSpringApplication(String appName, CloudStack stack, Integer healthCheckTimeout) throws CloudFoundryException {
 		createTestApp(appName, null, new Staging(null, null, stack, healthCheckTimeout));
 	}
 
