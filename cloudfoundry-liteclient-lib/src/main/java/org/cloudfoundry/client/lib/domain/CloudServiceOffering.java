@@ -51,7 +51,6 @@ public class CloudServiceOffering extends CloudEntity {
 
 		this.extra = new CloudExtra(Utils.safeGet(entity,"extra","{}"));
 		this.docUrl = Utils.safeGet(entity,"documentation_url");
-		
 	}
 	
 	public CloudServiceOffering(Meta meta, String name) {

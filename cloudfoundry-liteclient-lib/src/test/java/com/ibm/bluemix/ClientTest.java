@@ -232,9 +232,11 @@ public class ClientTest extends TestCase {
 	public void testServiceOfferings() throws CloudFoundryException {
 		List<CloudServiceOffering> offerings = cfc.getServiceOfferings();
 		for (CloudServiceOffering cso : offerings) {
-			log.info(cso.toString());
-			log.info(cso.getExtra().toString(3));
+			log.info(cso.getProvider()+" "+cso.getVersion());
+//			log.info(cso.toString());
+//			log.info(cso.getExtra().toString(3));
 			assertNotNull(cso.getProvider(),"Fix my code - provider should not be null");
+			assertNotNull(cso.getVersion(),"Fix my code - version should not be null");
 		}
 	}
 
