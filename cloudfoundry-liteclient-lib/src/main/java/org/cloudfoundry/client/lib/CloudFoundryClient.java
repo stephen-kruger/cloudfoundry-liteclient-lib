@@ -316,6 +316,10 @@ public class CloudFoundryClient implements CloudFoundryOperations {
 		//sessionSpace = validateSpaceAndOrg(spaceName, orgName);
 		return token;
 	}
+	
+	public OAuth2AccessToken getToken() {
+		return token;
+	}
 
 	public void logout() {
 		token = null;

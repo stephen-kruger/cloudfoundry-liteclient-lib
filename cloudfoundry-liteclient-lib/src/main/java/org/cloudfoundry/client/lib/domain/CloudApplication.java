@@ -112,7 +112,7 @@ public class CloudApplication extends CloudEntity {
 			}
 			if (entity.has("stack")) {
 				CloudStack stack = new CloudStack(entity.getJSONObject("stack").getJSONObject("metadata"),entity.getJSONObject("stack").getJSONObject("entity"));
-				System.out.println(entity.getJSONObject("stack").toString());
+//				System.out.println(entity.getJSONObject("stack").toString());
 				setStaging(new Staging(command, buildpackUrl,stack,null));
 			}
 		} 
